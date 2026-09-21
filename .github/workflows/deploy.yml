@@ -1,8 +1,8 @@
-name: Deploy to erp.vexasoft.net
+name: Deploy to dokani.vexasoft.net
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 jobs:
   deploy:
@@ -16,9 +16,9 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           script: |
             set -e
-            cd /var/www/erp.vexasoft.net
-            git fetch origin main
-            git reset --hard origin/main
+            cd /var/www/dokani.vexasoft.net
+            git fetch origin master
+            git reset --hard origin/master
             php8.5 /usr/local/bin/composer install --no-dev --optimize-autoloader
             npm ci
             npm run build
