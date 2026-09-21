@@ -34,6 +34,7 @@ class CompanySetting extends Model
         'pos_receipt_paper_width',
         'default_shift_start_time',
         'late_grace_minutes',
+        'daily_book_profit_margin_percent',
     ];
 
     protected $casts = [
@@ -41,6 +42,7 @@ class CompanySetting extends Model
         'purchase_requisition_approval_required' => 'boolean',
         'sale_quotation_approval_required' => 'boolean',
         'late_grace_minutes' => 'integer',
+        'daily_book_profit_margin_percent' => 'decimal:2',
     ];
 
     public function onlineSite(): BelongsTo

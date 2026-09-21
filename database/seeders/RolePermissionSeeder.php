@@ -20,6 +20,7 @@ class RolePermissionSeeder extends Seeder
      * Permission names follow the "module.action" convention.
      */
     protected array $modules = [
+        'daily-book' => ['view', 'edit'],
         'sourcing'  => ['view', 'create', 'edit', 'delete', 'approve'],
         'purchase-requisitions' => ['view', 'create', 'edit', 'delete', 'approve'],
         'sales'     => ['view', 'create', 'edit', 'delete', 'approve'],
@@ -62,6 +63,7 @@ class RolePermissionSeeder extends Seeder
             ->syncPermissions(Permission::all());
 
         Role::findOrCreate('Manager')->syncPermissions([
+            'daily-book.view',
             'sourcing.view', 'sourcing.create', 'sourcing.edit', 'sourcing.approve',
             'purchase-requisitions.view', 'purchase-requisitions.create', 'purchase-requisitions.edit', 'purchase-requisitions.approve',
             'sales.view', 'sales.create', 'sales.edit', 'sales.approve',
@@ -88,6 +90,7 @@ class RolePermissionSeeder extends Seeder
         ]);
 
         Role::findOrCreate('Accountant')->syncPermissions([
+            'daily-book.view',
             'accounts.view', 'accounts.create', 'accounts.edit', 'accounts.approve',
             'sourcing.view',
             'purchase-requisitions.view',

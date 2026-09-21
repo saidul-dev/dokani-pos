@@ -79,3 +79,342 @@ Too large for a single spec/implementation pass. Natural sub-projects, in build 
 Each of these should go through its own brainstorming → spec → plan cycle when picked up.
 
 ---
+
+## Bangladesh Product Master Catalog + Progressive Stock Initialization
+
+- **Added:** 2026-09-21
+- **Status:** Idea (not scoped, not started)
+
+### Problem
+
+Today `Product` ([app/Models/Product.php](../app/Models/Product.php)) is a single, flat table:
+one row per product, owned outright by whichever shop creates it, with its own
+`selling_price`, `estimated_cost`, and stock tracked via `StockMovement`
+([docs/stock-movements.md](stock-movements.md)). There is no concept of a shared/central
+product list, and no "shop hasn't told us its stock yet" state — a product's stock is
+whatever the sum of its `StockMovement` rows says, which defaults to 0 the moment a
+product row exists. Every shop that wants to sell, say, Lux Soap has to create that
+product from scratch, price it, and set an opening stock before a sale can happen against
+it.
+
+For small/medium Bangladeshi grocery/retail shops with a shop-wide range in the
+thousands of SKUs, requiring "create the product before you can sell it" up front is a
+real onboarding barrier.
+
+### Idea
+
+Ship the software with a **preloaded, central Bangladesh Product Master Catalog**
+(~10,000–20,000+ commonly sold products: brand, size, barcode, category, etc.), separate
+from each shop's own inventory row for that product (price, stock, min-stock). A shop
+gets access to the whole catalog immediately but starts with *zero* shop-inventory rows
+against it. Stock for a catalog product is only ever established when the shop actually
+needs it to be — via one of three moments, all treated as equally valid ways to
+"initialize" a product:
+
+1. **Manual bulk setup** — an optional screen where the owner searches/scans and types in
+   current quantities for the products they actually stock, at their own pace.
+2. **First sale** — scanning/selecting a catalog product that has no shop-inventory row
+   yet does not block the sale. Instead it prompts once: "How many do you currently
+   have?" — the answer becomes the opening stock, and the sale's quantity is deducted
+   from it in the same step.
+3. **First purchase** — recording a purchase of a catalog product with no shop-inventory
+   row yet creates the row and sets the purchase quantity directly as opening stock (no
+   extra question needed — the purchase itself is the count).
+
+Critically, **"not initialized" must be a distinct state from "stock = 0"** — a shop that
+hasn't touched a catalog product yet is different from a shop that has confirmed it is
+out of stock, and reporting (low-stock/out-of-stock counts, dashboards) must not conflate
+the two. See the worked example and full state machine in the original brainstorm
+(section 4, 6, 14, 21 of the source spec — ask for it if this gets picked up, or
+reconstruct from this summary).
+
+Products with no usable barcode (loose rice, lentils, potatoes, local produce, etc.)
+still need a per-shop "shop-specific product" escape hatch that doesn't require getting
+into the central catalog at all. Symmetrically, a scanned barcode that matches nothing in
+the central catalog should offer "create a shop-specific product" or "request catalog
+addition" rather than dead-ending the sale.
+
+### Why this is a bigger change than it sounds
+
+This is not just a new screen — it reshapes the core `Product` model:
+
+- **Central vs. shop-owned data must actually split.** Today `Product` holds both
+  catalog-ish fields (name, brand, category, barcode, image) and shop-owned fields
+  (`selling_price`, `estimated_cost`, `reorder_level`). This would need to become two
+  things — a `ProductCatalog`-style table (central, admin-managed, shared across shops)
+  and a `ShopProduct`/inventory table (per-shop price + stock status + min stock),
+  1-to-many from catalog → shop rows. Every existing query/view that reads
+  `$product->selling_price` etc. needs to resolve through the shop's row instead of the
+  product's own row.
+- **This system is currently single-shop, not multi-tenant.** There's a `Site` model
+  (branches) but no evidence of shop-level data isolation the way this feature implies
+  ("Shop A" vs "Shop B" each with their own price/stock for the same catalog product).
+  Confirm whether "shop" here means the existing `Site`/branch concept (multiple
+  branches of one business, each keeping its own stock of the same catalog item) before
+  assuming a new multi-tenant concept is needed — that changes the shape of this
+  significantly.
+- **Sale/purchase flows need a new interstitial step.** `SaleController`/`PurchaseController`
+  would need to detect "no shop-inventory row for this catalog product yet" mid-transaction
+  and branch into the quantity-prompt UX before continuing, rather than assuming the
+  product row (and its stock) always already exists.
+- **Stock audit trail** (section 16) mostly already exists in spirit via
+  `StockMovement`/[docs/stock-movements.md](stock-movements.md) — the main new piece is
+  recording the *initialization* event itself (an "Opening Stock" movement type sourced
+  from first-sale/first-purchase/manual-setup) as a first-class, distinguishable entry,
+  not just inferring it after the fact.
+- **Populating the actual 10,000–20,000 product catalog** (real Bangladeshi brands,
+  barcodes, sizes) is a data-sourcing project in its own right, separate from the
+  schema/UX work.
+
+### Suggested decomposition when this gets picked up
+
+1. Decide the shop/tenant model this assumes (existing `Site`, or a new concept) —
+   this gates everything else.
+2. Split `Product` into central catalog + per-shop inventory row, with a migration plan
+   for existing data (every current `Product` row becomes both a catalog entry and a
+   shop-inventory row so nothing existing breaks).
+3. Add the "not initialized" stock status as a real, queryable state (not just an absent
+   row) and wire dashboard counts (section 21) to respect it.
+4. Build the first-sale / first-purchase "how many do you have?" interstitial in the POS
+   and purchase flows.
+5. Shop-specific (non-catalog) product creation + "product not found → create or request"
+   flow for unmatched barcodes.
+6. Manual bulk stock setup screen (search/scan + quantity, save-as-you-go).
+7. Source and load the actual product catalog data (separate, ongoing data project).
+
+Each of these should go through its own brainstorming → spec → plan cycle when picked up.
+
+---
+
+## "Daily Book" — quick daily Purchase/Sale/Expense/Capital entry + Summary dashboard
+
+- **Added:** 2026-09-21
+- **Status:** Partially implemented (2026-09-21). The "Daily Book" sidebar menu is live
+  with six sublinks: Summary, Purchase Entry, Sale Entry, Expense Entry, Capital Entry,
+  Settings.
+
+  **Summary** (`daily-book.summary` route, `DailyBookController::summary()`,
+  `resources/views/admin/daily-book/summary.blade.php`) — a day/week/month/**custom**
+  toggle (custom range takes `from`/`to` query params, defaults to today when absent,
+  auto-swaps a backwards range) showing, for the selected range: Total Purchase, Total
+  Sale, Total Expense, Gross Profit (Sale − Purchase), Net Profit (Gross Profit −
+  Expense), and — once a margin is configured — Estimated Profit. Plus, **independent of
+  the range toggle**, an all-time **Cash in Hand** figure (Total Capital + Total Sale −
+  Total Purchase − Total Expense, since the very first entry ever logged). **Sourced
+  entirely from `DailyBookEntry`** — not from the real `Purchase`/`Sale`/`Expense` tables.
+  This was originally built the other way around (reading the real tables) and shipped
+  with a known gap — logging an entry via Purchase/Sale/Expense Entry below didn't move
+  the Summary numbers at all, since they read from disconnected sources. That gap was
+  reported by the client (2026-09-21) and fixed the same day by switching Summary to
+  read `DailyBookEntry` instead; see "Open questions" below for why this direction was
+  chosen over the alternatives considered. A first cut of Summary also had a
+  "Net (Sale − Purchase − Expense)" card that the client called out as not a meaningful
+  number on its own (mixing two unrelated cash flows) — it was removed in favor of the
+  Gross Profit / Net Profit pair, which mirrors a real P&L's structure instead.
+
+  **Purchase/Sale/Expense/Capital Entry** (`daily-book.entries.*` routes,
+  `DailyBookController::entryIndex/entryCreate/entryStore()`,
+  `resources/views/admin/daily-book/entry-{index,create}.blade.php`) — explicitly a
+  **separate, standalone quick-log**, NOT a lightweight way to create real
+  Purchase/Sale/Expense/CapitalTransaction records. Backed by a new `daily_book_entries`
+  table (`App\Models\DailyBookEntry`, `type` + `entry_date` + `amount` + optional
+  `site_id`/`note`) that shares nothing with `purchases`/`sales`/`expenses`/
+  `capital_transactions` and is never written to `LedgerTransaction` or `StockMovement`.
+  This was a deliberate decision: the shop owner wants a fast day/amount/note log with
+  zero accounting or stock side effects — it does **not** feed Accounts and does **not**
+  feed Inventory (it does now feed Summary, per the fix above). The Site picker on the
+  Entry form is present in the DOM but hidden (`class="hidden"` wrapper, not removed) per
+  a later client request — the field and its backend fallback to `current_site_id` still
+  work exactly as before, it's just not shown, keeping the form to the fewest visible
+  decisions possible.
+
+  **Capital** is the Daily Book stand-in for the real system's
+  `CapitalTransaction` 'investment' type (see `app/Models/CapitalTransaction.php`) — how
+  the owner records putting money into the business, at any time, repeatably. There is
+  deliberately no separate "starting balance" concept: the client first asked for a
+  locked, one-time "Initial Balance" setting, then asked to be able to invest into the
+  business at any point, which subsumes the one-time-balance idea — so it was dropped in
+  favor of just letting the first Capital entry serve as the effective starting point.
+
+  **Settings** (`daily-book.settings.*` routes, gated by the stricter
+  **`daily-book.edit`** permission rather than `.view` — only Admin/Super Admin have it
+  by default) — one field, `CompanySetting::daily_book_profit_margin_percent` (nullable
+  decimal, company-wide). Daily Book has no per-product cost, so it can never compute a
+  real profit; this is the owner's own rough guess at their typical margin, and Summary's
+  Estimated Profit is simply `Total Sale × this percentage`, hidden entirely when the
+  field is null (never treated as 0%). Explicitly labeled as an approximation, not a
+  calculation, everywhere it appears. (A `daily_book_initial_balance` column was briefly
+  added here and then removed before ever being migrated, once Capital Entry replaced
+  the initial-balance idea — see above.)
+
+  Each entry can optionally carry **one receipt/bill photo** — `DailyBookEntry` uses the
+  existing `HasAttachments` trait / polymorphic `Attachment` model (same mechanism as
+  `Task`/`Employee` attachments), stored under `storage/app/public/daily-book`. The photo
+  field is never required — saving an entry with no photo is the expected common case.
+  The upload input uses `accept="image/*" capture="environment"` so a phone opens straight
+  to its rear camera, with a gallery/file-picker fallback baked into the same control.
+
+  The entry-create form and the sidebar's mobile "New Entry" button were also built/kept
+  full-width and touch-sized (larger inputs, a sticky bottom Save/Cancel bar on phone
+  screens) specifically because Daily Book is meant to be used on a phone in the shop,
+  not just at a desktop.
+
+  `daily-book.view` permission granted to Admin/Manager/Accountant (`RolePermissionSeeder`).
+
+### Problem
+
+Note: this is an independent idea, unrelated to the "Bangladesh Product Master Catalog +
+Progressive Stock Initialization" entry elsewhere in this file — that one is about
+onboarding a shop's product catalog gradually; this one is about logging daily totals
+without itemized entry. They happen to share this document, nothing else.
+
+Many mudi (small grocery) shop owners don't want the overhead of itemized, product-line
+entry at all, at least not for day-to-day bookkeeping — they just want to log, in
+seconds, "how much did I spend on purchase today," "how much did I sell today," and
+"what expenses did I pay today," without picking a specific product line-by-line. The
+existing `Purchase`/`Sale`/`Expense` flows ([app/Models/Purchase.php](../app/Models/Purchase.php),
+[app/Models/Sale.php](../app/Models/Sale.php), [app/Models/Expense.php](../app/Models/Expense.php))
+are all built around itemized, product-line entry (`PurchaseItem`, `SaleItem`), which is
+correct for real inventory tracking but is friction for an owner who just wants a running
+daily total.
+
+### Why it's a *separate* log rather than a shortcut into the real tables
+
+This is the key product intent behind Daily Book, stated explicitly by the client
+(2026-09-21): **Daily Book is an onboarding on-ramp, not a permanent alternative
+bookkeeping system.**
+
+The expected adoption path for a new shop owner is:
+
+1. **Day one:** the owner starts with Daily Book only — logging total daily
+   purchase/sale/expense amounts, no products, no accounts, no learning curve. This is
+   deliberately as close to "just write it in a notebook" as software gets.
+2. **Once comfortable with the software** (days/weeks in, once the owner trusts it and
+   wants real reporting — per-product stock, dues, profit/loss, etc.), they graduate to
+   the full itemized system: real `Purchase`/`Sale`/POS with product lines, `Expense`
+   against ledger accounts, and everything that feeds `LedgerTransaction` /
+   `StockMovement` / real reporting.
+
+Because Daily Book is explicitly a **temporary stepping stone** rather than a permanent
+parallel bookkeeping method, it must stay structurally cheap to ignore or outgrow:
+`DailyBookEntry` rows should never need migrating into `Purchase`/`Sale`/`Expense` later,
+and the two systems are expected to coexist (an owner might keep using Daily Book for
+quick same-day notes even after adopting the full system) rather than one replacing the
+other in the data model. This is *why* `DailyBookEntry` was built as a fully standalone
+table with zero relation to `purchases`/`sales`/`expenses`/`ledger_transactions`/
+`stock_movements` — it was a deliberate simplicity choice for an onboarding tool, not an
+oversight. (See "Open questions" below for what, if anything, should still tie the two
+together — e.g. surfacing both in one place — without merging their data.)
+
+### Commercial motive (client, 2026-09-21)
+
+Daily Book is explicitly a **sales/conversion tool for the business selling this
+software**, not just a UX nicety. The stated plan: a prospective client is first handed
+just Daily Book — zero learning curve, phone-friendly, "log your day's numbers" — to get
+them actually using the software daily. Once that habit is established and the shop
+owner trusts the software with their real day-to-day numbers, the pitch becomes
+upgrading them to the full ERP (Purchase/Sale/POS with products, Inventory, Accounts,
+HRM, reporting, etc.) — i.e. Daily Book is the low-friction hook, and the full system is
+what actually gets sold/subscribed once the owner is convinced.
+
+Implications worth keeping in mind if/when this is revisited:
+
+- Daily Book's UI/UX quality directly affects conversion — it's the client's first
+  impression of the product, not a throwaway feature, which is part of why it got the
+  mobile-app-style treatment (full-width touch-sized forms, camera capture, sticky
+  bottom actions — see the Idea section below) rather than being treated as a minor
+  internal tool.
+- There is no gating/licensing logic yet that actually restricts a shop to
+  Daily-Book-only vs. full-ERP access — today every seeded role with `daily-book.view`
+  can also reach the full Purchase/Sale/Expense modules if granted those permissions
+  too. If the sales motion needs an actual "Daily Book only" trial tier enforced in
+  software (not just sales conversation), that's a separate, unscoped piece of work
+  (likely a plan/subscription concept gating which permissions a company's users can
+  hold) — nothing here currently enforces it.
+- Nudging the owner toward the full system (in-app prompts, "you've logged N days —
+  ready to see richer reports?", etc.) is implied by the strategy but not built —
+  flagging it here as a natural next idea, not committing to it.
+
+### Idea
+
+Add a new **"Daily Book"** parent menu to the admin sidebar
+([resources/views/layouts/app.blade.php](../resources/views/layouts/app.blade.php)),
+positioned directly under "Dashboard" (i.e. at the very top, above the existing
+"Operations" group that holds Purchase/POS/Sales/Inventory) — reflecting that this is
+meant to be the owner's daily-use entry point, not a back-office admin screen.
+
+For now, this parent menu holds exactly one submenu item: **"Summary"** — everything
+else (quick purchase entry, quick sale entry, quick expense entry) is implied by the
+feature name but explicitly deferred; only the Summary page is being specified here.
+
+**Summary page** — a dashboard-style report, scoped like the existing
+`DashboardController` (site-aware via `Auth::user()->current_site_id`, see
+[app/Http/Controllers/Admin/DashboardController.php](../app/Http/Controllers/Admin/DashboardController.php)),
+showing three headline numbers — **total Purchase, total Sale, total Expense** — each
+switchable between three views:
+
+- **Day-wise** — today's totals (and ideally a short recent-days list/table, not just
+  "today"), by `order_date` for Purchase/Sale and `expense_date` for Expense.
+- **Week-wise** — current week (or trailing 7 days, matching the existing dashboard's
+  `weeklyChart()` convention) totals.
+- **Month-wise** — current month (or trailing 30 days) totals.
+
+Sale total should exclude cancelled sales (`status != 'cancelled'`, matching
+`DashboardController::index()`'s existing `$todaySales` query) for consistency with the
+rest of the app. Purchase total should likewise probably exclude `cancelled` purchases —
+confirm against `Purchase::STATUSES` semantics when this is built.
+
+### Open questions to resolve before implementation
+
+- **Expense has no `site_id`** (see [app/Models/Expense.php](../app/Models/Expense.php)) —
+  unlike Purchase and Sale, which are both site-scoped. Decide whether Expense stays
+  company-wide in this summary (like Collections already do in the main dashboard) or
+  whether `site_id` needs adding to `expenses` first.
+- **Permission gate name** — every existing sidebar entry is wrapped in `@can('xxx.view')`
+  (e.g. `sourcing.view`, `sales.view`, `inventory.view` — see the `@can` calls throughout
+  `layouts/app.blade.php`). This needs its own gate, e.g. `daily-book.view`, registered
+  wherever the others are (check `RolePermissionSeeder` and the `Gate`/policy setup) —
+  and a decision on which existing roles (Super Admin, Admin, Manager, Accountant, ...)
+  get it by default.
+- **Route naming** — existing admin routes live under `Route::prefix('admin')` in
+  [routes/web.php](../routes/web.php) with `->middleware(['auth', 'current-site'])`, named
+  like `dashboard`, `sales.index`, etc. A `daily-book.summary` (or similar) name should
+  follow that same convention.
+- ~~**Whether "quick entry" ever gets built**~~ — resolved: built as `DailyBookEntry`, a
+  deliberately standalone quick-log table, separate from `Purchase`/`Sale`/`Expense`. See
+  "Status" above.
+- ~~**Summary and Entry now read from two disconnected sources**~~ — resolved
+  (2026-09-21), option (a) from the three considered here, inverted: Summary was
+  switched to read **only** `DailyBookEntry` (not the real tables) rather than staying on
+  the real tables or merging both. Rationale: Daily Book is meant to work end-to-end
+  before a shop ever touches the full itemized system (see "Commercial motive" above),
+  so its own Summary can't depend on that system having data. If a future need arises to
+  also see real-transaction totals in one place, that's the full system's own
+  reports/dashboard, not something Daily Book's Summary should absorb.
+- **No enforcement of a "Daily Book only" trial tier** — see "Commercial motive" above;
+  today `daily-book.view`/`.edit` are just permissions like any other, with no
+  plan/subscription concept restricting a company to Daily Book alone. Flagged, not
+  scoped.
+
+### Suggested decomposition when this gets picked up
+
+1. ~~Resolve the Expense `site_id` question and the permission-gate name.~~ Done —
+   Expense stayed company-wide (matching Collections); gate is `daily-book.view`.
+2. ~~Add the `daily-book.summary` route + `DailyBookController`~~ Done.
+3. ~~Build the Summary Blade view~~ Done.
+4. ~~Add the "Daily Book" parent menu + "Summary" sublink~~ Done — menu now also carries
+   Purchase/Sale/Expense Entry and Settings sublinks.
+5. ~~Quick daily Purchase/Sale/Expense entry forms~~ Done — `DailyBookEntry` +
+   `entryIndex`/`entryCreate`/`entryStore` on `DailyBookController`.
+6. ~~Decide how `DailyBookEntry` totals surface on Summary~~ Done — Summary reads
+   `DailyBookEntry` exclusively; see the resolved open question above.
+7. ~~Optional receipt/bill photo per entry~~ Done — `HasAttachments` / `Attachment`,
+   camera-capture input, never required.
+8. ~~Approximate profit margin setting~~ Done — `daily-book.settings.*`,
+   `CompanySetting::daily_book_profit_margin_percent`, Estimated Profit on Summary.
+9. **Remaining/unscoped:** an actual Daily-Book-only trial tier enforced in software (see
+   "Commercial motive"), and any in-app nudge toward upgrading to the full system.
+
+Each of these should go through its own brainstorming → spec → plan cycle when picked up.
+
+---

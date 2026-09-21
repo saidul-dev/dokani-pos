@@ -10,6 +10,7 @@ use App\Http\Controllers\Admin\CategoryController;
 use App\Http\Controllers\Admin\CollectionController;
 use App\Http\Controllers\Admin\ContactMessageController;
 use App\Http\Controllers\Admin\CourierConsignmentController;
+use App\Http\Controllers\Admin\DailyBookController;
 use App\Http\Controllers\Admin\DashboardController;
 use App\Http\Controllers\Admin\DayBookController;
 use App\Http\Controllers\Admin\DeliveryPartnerController;
@@ -122,6 +123,24 @@ Route::prefix('admin')->group(function () {
         Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
         Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+        // "Daily Book" — quick Purchase/Sale/Expense totals for day/week/month
+        // (docs/future-ideas.md). Not to be confused with day-book.index
+        // below, which is the full ledger-transaction register.
+        Route::get('/daily-book/summary', [DailyBookController::class, 'summary'])->name('daily-book.summary');
+
+        // Must stay registered before the {type} routes below, or {type}
+        // would swallow "settings" as a bogus entry type.
+        Route::get('/daily-book/settings', [DailyBookController::class, 'editSettings'])->name('daily-book.settings.edit');
+        Route::put('/daily-book/settings', [DailyBookController::class, 'updateSettings'])->name('daily-book.settings.update');
+
+        // "Daily Book" quick entries — {type} is 'purchase' | 'sale' | 'expense'
+        // | 'capital' (DailyBookEntry::TYPES). Deliberately separate from the
+        // real Purchase/Sale/Expense/CapitalTransaction resources above: no
+        // product lines, no ledger posting, no stock effect — see DailyBookEntry.
+        Route::get('/daily-book/{type}', [DailyBookController::class, 'entryIndex'])->name('daily-book.entries.index');
+        Route::get('/daily-book/{type}/create', [DailyBookController::class, 'entryCreate'])->name('daily-book.entries.create');
+        Route::post('/daily-book/{type}', [DailyBookController::class, 'entryStore'])->name('daily-book.entries.store');
 
         // Per-action permission checks live in each controller's middleware() method
         Route::resource('users', UserController::class)->except('show');
