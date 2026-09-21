@@ -21,12 +21,16 @@ class WebsiteController extends Controller
             return $this->ecommerceHome($company);
         }
 
+        // Filtered in PHP rather than a query HAVING clause: withCount's
+        // products_count isn't a GROUP BY aggregate, and SQLite (unlike
+        // MySQL) rejects HAVING on a plain column with no GROUP BY.
         $categories = Category::whereNull('parent_id')->where('status', true)
             ->withCount('products')
             ->with(['products' => fn ($q) => $q->where('status', true)->whereNotNull('image_path')->limit(1)])
-            ->having('products_count', '>', 0)
             ->orderBy('name')
-            ->get();
+            ->get()
+            ->filter(fn (Category $category) => $category->products_count > 0)
+            ->values();
 
         $products = Product::with('stockUnit')
             ->where('status', true)->where('has_variants', false)
