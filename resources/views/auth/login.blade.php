@@ -142,7 +142,6 @@
                     </button>
                 </form>
 
-                @if (app()->environment('local'))
                 @php
                 $demoAccounts = [
                 ['role' => 'Super Admin', 'email' => 'admin@businesserp.test'],
@@ -156,7 +155,7 @@
                 ];
                 @endphp
                 <div class="mt-5 border-t border-white/10 pt-4">
-                    <p class="font-mono-label text-[9px] tracking-[0.16em] text-brand-300/60 uppercase">{{ __('Quick fill') }} &middot; {{ __('dev only') }}</p>
+                    <p class="font-mono-label text-[9px] tracking-[0.16em] text-brand-300/60 uppercase">{{ __('Quick fill') }} &middot; {{ __('demo accounts') }}</p>
                     <div class="mt-2.5 flex flex-wrap gap-1.5">
                         @foreach ($demoAccounts as $account)
                         <button type="button"
@@ -166,8 +165,8 @@
                         </button>
                         @endforeach
                     </div>
+                    <p class="mt-2 text-[10px] text-brand-300/50">{{ __('Password for all demo accounts:') }} <span class="font-mono-label text-brand-200/70">password</span></p>
                 </div>
-                @endif
             </div>
 
             <div class="relative z-10 order-3 max-w-sm lg:order-1 lg:mt-24">
