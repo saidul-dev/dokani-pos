@@ -1514,5 +1514,22 @@
     "No feature is locked behind a higher plan — every package gets the full system.": "কোনো ফিচারই উঁচু প্যাকেজের পেছনে লক করা নেই — প্রতিটি প্যাকেজই পায় সম্পূর্ণ সিস্টেম।",
     "No. You pay a one-time setup charge — which covers installation, your domain and the first year of hosting — and then a small fixed monthly maintenance fee based on storage size. There's no per-user or per-order charge that grows with your sales.": "না। আপনি একবার সেটআপ চার্জ দেবেন — যা ইনস্টলেশন, আপনার ডোমেইন এবং প্রথম বছরের হোস্টিং কভার করে — এরপর স্টোরেজ সাইজ অনুযায়ী একটি নির্দিষ্ট মাসিক রক্ষণাবেক্ষণ ফি দিতে হবে। বিক্রয় বাড়ার সাথে সাথে বাড়ে এমন কোনো ইউজার বা অর্ডারভিত্তিক চার্জ নেই।",
     "How does the storage size affect the monthly fee?": "স্টোরেজ সাইজ মাসিক ফি-কে কীভাবে প্রভাবিত করে?",
-    "Every package starts at 5 GB for ৳1,500/month. As your product images, invoices and records grow, you can move up to 10 GB or 25 GB — the price updates immediately, right on this page, so you always know the cost before switching.": "প্রতিটি প্যাকেজ শুরু হয় ৫ জিবি দিয়ে, মাসিক ৳১,৫০০-তে। আপনার প্রোডাক্ট ছবি, ইনভয়েস ও রেকর্ড বাড়ার সাথে সাথে আপনি ১০ জিবি বা ২৫ জিবি-তে যেতে পারবেন — এই পেজেই সাথে সাথে দাম আপডেট হয়ে যায়, তাই পরিবর্তনের আগেই খরচ জেনে নিতে পারবেন।"
+    "Every package starts at 5 GB for ৳1,500/month. As your product images, invoices and records grow, you can move up to 10 GB or 25 GB — the price updates immediately, right on this page, so you always know the cost before switching.": "প্রতিটি প্যাকেজ শুরু হয় ৫ জিবি দিয়ে, মাসিক ৳১,৫০০-তে। আপনার প্রোডাক্ট ছবি, ইনভয়েস ও রেকর্ড বাড়ার সাথে সাথে আপনি ১০ জিবি বা ২৫ জিবি-তে যেতে পারবেন — এই পেজেই সাথে সাথে দাম আপডেট হয়ে যায়, তাই পরিবর্তনের আগেই খরচ জেনে নিতে পারবেন।",
+    "Daily Book — Suppliers": "দৈনিক খাতা — সরবরাহকারী",
+    "Add Supplier": "সরবরাহকারী যোগ করুন",
+    "New Supplier": "নতুন সরবরাহকারী",
+    "Choose existing": "আগের থেকে বাছুন",
+    "Supplier name": "সরবরাহকারীর নাম",
+    "Phone number": "ফোন নম্বর",
+    "— No supplier —": "— সরবরাহকারী নেই —",
+    "required for due": "বাকি রাখলে আবশ্যক",
+    "The supplier / wholesaler you bought from.": "যে সরবরাহকারী / পাইকারের কাছ থেকে কিনেছেন।",
+    "Paid now": "এখন পরিশোধ",
+    "Paid in full. Lower this if you're keeping some due with the supplier.": "পুরো টাকা পরিশোধিত। সরবরাহকারীর কাছে কিছু বাকি রাখলে এটি কমান।",
+    "To keep a due, choose or add the supplier you owe.": "বাকি রাখতে হলে যে সরবরাহকারীর কাছে বাকি, তাকে বাছুন বা যোগ করুন।",
+    "Total you owe": "মোট দেনা",
+    "Quick Pay": "দ্রুত পরিশোধ",
+    "Pay": "পরিশোধ করুন",
+    "Save": "সংরক্ষণ করুন",
+    "Suppliers / wholesalers you buy from, and how much you owe each.": "যেসব সরবরাহকারী / পাইকারের কাছ থেকে কেনেন, এবং কার কাছে কত বাকি।"
 }

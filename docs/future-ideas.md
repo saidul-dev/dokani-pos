@@ -207,7 +207,8 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   "Estimated Profit" card (which computed the same Sale × % figure) was folded into it.
   Plus, **independent of
   the range toggle**, an all-time **Cash in Hand** figure (Total Capital + Total Sale −
-  Total Purchase − Total Expense, since the very first entry ever logged). **Sourced
+  cash actually paid out: purchases' `paid_amount`, expenses, and supplier payments —
+  since the very first entry ever logged; see "Suppliers" below). **Sourced
   entirely from `DailyBookEntry`** — not from the real `Purchase`/`Sale`/`Expense` tables.
   This was originally built the other way around (reading the real tables) and shipped
   with a known gap — logging an entry via Purchase/Sale/Expense Entry below didn't move
@@ -242,6 +243,32 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   locked, one-time "Initial Balance" setting, then asked to be able to invest into the
   business at any point, which subsumes the one-time-balance idea — so it was dropped in
   favor of just letting the first Capital entry serve as the effective starting point.
+
+  **Suppliers** (2026-10-03; `daily-book.suppliers.*` routes, `DailyBookController::
+  supplierIndex/supplierStore/supplierPay()`,
+  `resources/views/admin/daily-book/supplier-index.blade.php`) — credit purchases from a
+  supplier/wholesaler. First shipped under the name "Mohajon" (মহাজন, the everyday
+  Bangladeshi word for the wholesaler you buy from on credit); the client renamed it to
+  "Supplier" the same day, matching the full system's wording (সরবরাহকারী in Bangla).
+  It **reuses the existing `parties` table** (a supplier is a Party with `is_supplier`),
+  so the same people appear in the full system's Parties module after an upgrade — no
+  separate supplier list. Suppliers can be added from the Suppliers page ("Add
+  Supplier": name + phone; a phone that's already a customer gets the supplier flag too,
+  one that's already a supplier is refused) or quick-added on a Purchase Entry (a phone
+  already on file is reused, and the success message names who it was recorded under).
+  The purchase form's "Paid now" defaults to the full amount; anything less is a due, and
+  a due **requires** a supplier (enforced client- and server-side). Due per supplier =
+  Σ(purchase amount − `paid_amount`) − Σ(`supplier_payment` entries)
+  (`DailyBookEntry::supplierDues()`, company-wide). The Suppliers page lists every
+  supplier with their due, highest first, with Quick Pay (prefilled with the full due,
+  can't exceed it). **Dues are Daily-Book-only** — nothing posts to the ledger, so
+  `Party::payableBalance()` in the full system does not include them; reconciling the two
+  is a job for the eventual Daily Book → full system upgrade path. `party_id` is
+  restrict-on-delete, so a supplier with Daily Book history can't be silently deleted
+  from Parties (the existing PartyController doesn't catch that FK error yet — same
+  pre-existing gap as parties with sales/purchases). Not built: customer-side credit
+  sales (বাকি খাতা), an opening due for a supplier owed money from before the shop
+  started using Daily Book, and a per-supplier payment history page.
 
   **Settings** (`daily-book.settings.*` routes, gated by the stricter
   **`daily-book.edit`** permission rather than `.view` — only Admin/Super Admin have it

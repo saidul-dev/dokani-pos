@@ -134,6 +134,13 @@ Route::prefix('admin')->group(function () {
         Route::get('/daily-book/settings', [DailyBookController::class, 'editSettings'])->name('daily-book.settings.edit');
         Route::put('/daily-book/settings', [DailyBookController::class, 'updateSettings'])->name('daily-book.settings.update');
 
+        // Supplier (wholesaler) list, Add Supplier, dues + Quick Pay — same
+        // "before {type}" ordering constraint as settings above (the POST
+        // would otherwise hit daily-book.entries.store with type=suppliers).
+        Route::get('/daily-book/suppliers', [DailyBookController::class, 'supplierIndex'])->name('daily-book.suppliers.index');
+        Route::post('/daily-book/suppliers', [DailyBookController::class, 'supplierStore'])->name('daily-book.suppliers.store');
+        Route::post('/daily-book/suppliers/{party}/pay', [DailyBookController::class, 'supplierPay'])->name('daily-book.suppliers.pay');
+
         // "Daily Book" quick entries — {type} is 'purchase' | 'sale' | 'expense'
         // | 'capital' (DailyBookEntry::TYPES). Deliberately separate from the
         // real Purchase/Sale/Expense/CapitalTransaction resources above: no

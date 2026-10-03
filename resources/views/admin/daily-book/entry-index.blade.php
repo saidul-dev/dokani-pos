@@ -32,9 +32,15 @@
                 <tr class="border-b border-slate-100 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <th class="px-5 py-3 font-semibold">{{ __('Date') }}</th>
                     <th class="px-5 py-3 font-semibold">{{ __('Site') }}</th>
+                    @if ($type === 'purchase')
+                    <th class="px-5 py-3 font-semibold">{{ __('Supplier') }}</th>
+                    @endif
                     <th class="px-5 py-3 font-semibold">{{ __('Note') }}</th>
                     <th class="px-5 py-3 font-semibold">{{ __('Photo') }}</th>
                     <th class="px-5 py-3 font-semibold text-right">{{ __('Amount') }}</th>
+                    @if ($type === 'purchase')
+                    <th class="px-5 py-3 font-semibold text-right">{{ __('Due') }}</th>
+                    @endif
                     <th class="px-5 py-3 font-semibold">{{ __('Logged By') }}</th>
                 </tr>
             </thead>
@@ -43,6 +49,9 @@
                 <tr class="hover:bg-slate-50">
                     <td class="px-5 py-3 text-slate-600">{{ $entry->entry_date->format('d M, Y') }}</td>
                     <td class="px-5 py-3 text-slate-600">{{ $entry->site->name ?? '—' }}</td>
+                    @if ($type === 'purchase')
+                    <td class="px-5 py-3 text-slate-600">{{ $entry->party->name ?? '—' }}</td>
+                    @endif
                     <td class="px-5 py-3 text-slate-500">{{ $entry->note ?: '—' }}</td>
                     <td class="px-5 py-3">
                         @if ($entry->attachments->isNotEmpty())
@@ -55,11 +64,16 @@
                         @endif
                     </td>
                     <td class="px-5 py-3 text-right font-semibold text-brand-900">{{ number_format($entry->amount, 2) }}</td>
+                    @if ($type === 'purchase')
+                    <td class="px-5 py-3 text-right font-semibold {{ $entry->due_amount > 0 ? 'text-rose-600' : 'text-slate-300' }}">
+                        {{ $entry->due_amount > 0 ? number_format($entry->due_amount, 2) : '—' }}
+                    </td>
+                    @endif
                     <td class="px-5 py-3 text-slate-500">{{ $entry->creator->name ?? '—' }}</td>
                 </tr>
                 @empty
                 <tr>
-                    <td colspan="6" class="px-5 py-10 text-center text-slate-400">
+                    <td colspan="{{ $type === 'purchase' ? 8 : 6 }}" class="px-5 py-10 text-center text-slate-400">
                         {{ __('No :type entries logged yet.', ['type' => strtolower($typeLabel)]) }}
                     </td>
                 </tr>

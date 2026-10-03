@@ -26,7 +26,20 @@
         </div>
     </x-slot>
 
-    <div class="w-full" x-data="{ photoName: null, photoUrl: null }">
+    <div class="w-full" x-data="{
+            photoName: null,
+            photoUrl: null,
+            {{-- Purchase only: Paid follows Amount until the owner edits it, so a cash
+                 purchase needs no extra typing; anything less than Amount is a due. --}}
+            amount: @js(old('amount', '')),
+            paid: @js(old('paid_amount', '')),
+            paidTouched: @js(old('paid_amount') !== null),
+            newSupplier: @js(filled(old('new_party_name')) || filled(old('new_party_phone'))),
+            get due() {
+                const d = (parseFloat(this.amount) || 0) - (parseFloat(this.paid) || 0);
+                return d > 0 ? d : 0;
+            },
+        }">
         <form method="POST" action="{{ route('daily-book.entries.store', $type) }}" enctype="multipart/form-data"
               class="w-full rounded-2xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-slate-200 space-y-6 pb-28 sm:pb-6">
             @csrf
@@ -46,11 +59,77 @@
                         <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
                         <x-text-input id="amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0.01"
                                       class="block w-full !py-3.5 !pl-9 !text-base rounded-xl"
-                                      :value="old('amount')" placeholder="0.00" required autofocus />
+                                      x-model="amount" x-on:input="if (! paidTouched) paid = amount"
+                                      placeholder="0.00" required autofocus />
                     </div>
                     <x-input-error class="mt-2" :messages="$errors->get('amount')" />
                 </div>
             </div>
+
+            @if ($type === 'purchase')
+            {{-- Credit purchase from a supplier (wholesaler — a Party with
+                 is_supplier). Supplier is optional for a cash purchase, required
+                 the moment any due is kept — enforced again server-side. --}}
+            <div class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200 space-y-5">
+                <div>
+                    <x-input-label for="paid_amount" :value="__('Paid now')" class="text-sm font-semibold" />
+                    <div class="relative mt-1.5">
+                        <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
+                        <x-text-input id="paid_amount" name="paid_amount" type="number" inputmode="decimal" step="0.01" min="0"
+                                      class="block w-full !py-3.5 !pl-9 !text-base rounded-xl"
+                                      x-model="paid" x-on:input="paidTouched = true"
+                                      placeholder="0.00" required />
+                    </div>
+                    <p class="mt-1.5 text-sm text-rose-600" x-show="due > 0" x-cloak>
+                        {{ __('Due') }}: <span class="font-bold" x-text="'৳' + due.toFixed(2)"></span>
+                    </p>
+                    <p class="mt-1.5 text-xs text-slate-400" x-show="due <= 0">
+                        {{ __('Paid in full. Lower this if you\'re keeping some due with the supplier.') }}
+                    </p>
+                    <x-input-error class="mt-2" :messages="$errors->get('paid_amount')" />
+                </div>
+
+                <div>
+                    <div class="flex items-center justify-between gap-3">
+                        <x-input-label for="party_id" class="text-sm font-semibold">
+                            {{ __('Supplier') }}
+                            <span class="font-normal text-slate-400" x-show="due <= 0">({{ __('optional') }})</span>
+                            <span class="font-semibold text-rose-600" x-show="due > 0" x-cloak>({{ __('required for due') }})</span>
+                        </x-input-label>
+                        <button type="button" x-on:click="newSupplier = ! newSupplier"
+                                class="shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold text-brand-800 ring-1 ring-slate-200 bg-white hover:bg-slate-50">
+                            <span x-show="! newSupplier">+ {{ __('New Supplier') }}</span>
+                            <span x-show="newSupplier" x-cloak>{{ __('Choose existing') }}</span>
+                        </button>
+                    </div>
+                    <p class="mt-0.5 text-xs text-slate-400">{{ __('The supplier / wholesaler you bought from.') }}</p>
+
+                    {{-- Disabled inputs aren't submitted, so only the active mode
+                         (pick existing vs. quick add) reaches the server. --}}
+                    <div x-show="! newSupplier" class="mt-2">
+                        <select id="party_id" name="party_id" x-bind:disabled="newSupplier"
+                                class="block w-full rounded-xl border-slate-300 !py-3.5 !text-base focus:border-accent-500 focus:ring-accent-500">
+                            <option value="">{{ __('— No supplier —') }}</option>
+                            @foreach ($suppliers as $supplier)
+                            <option value="{{ $supplier->id }}" @selected(old('party_id') == $supplier->id)>{{ $supplier->name }} · {{ $supplier->phone }}</option>
+                            @endforeach
+                        </select>
+                    </div>
+
+                    <div x-show="newSupplier" x-cloak class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <x-text-input name="new_party_name" type="text" x-bind:disabled="! newSupplier"
+                                      class="block w-full !py-3.5 !text-base rounded-xl"
+                                      :value="old('new_party_name')" placeholder="{{ __('Supplier name') }}" />
+                        <x-text-input name="new_party_phone" type="tel" inputmode="tel" x-bind:disabled="! newSupplier"
+                                      class="block w-full !py-3.5 !text-base rounded-xl"
+                                      :value="old('new_party_phone')" placeholder="{{ __('Phone number') }}" />
+                    </div>
+                    <x-input-error class="mt-2" :messages="$errors->get('party_id')" />
+                    <x-input-error class="mt-2" :messages="$errors->get('new_party_name')" />
+                    <x-input-error class="mt-2" :messages="$errors->get('new_party_phone')" />
+                </div>
+            </div>
+            @endif
 
             {{-- Site picker hidden for Daily Book — keep the field/backend logic
                  intact (see DailyBookController::entryStore, which falls back to

@@ -5,11 +5,15 @@ namespace App\Http\Controllers\Admin;
 use App\Http\Controllers\Controller;
 use App\Models\CompanySetting;
 use App\Models\DailyBookEntry;
+use App\Models\Party;
 use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpKernel\Exception\NotFoundHttpException;
 
 /**
@@ -121,24 +125,26 @@ class DailyBookController extends Controller implements HasMiddleware
     }
 
     /**
-     * Total Capital + Total Sale − Total Purchase − Total Expense, across
-     * ALL TIME — deliberately not scoped to the Summary page's selected
-     * day/week/month/custom range, since "cash in hand" only makes sense
-     * as a running balance from the first entry ever logged, not as a
-     * per-period figure. 'capital' entries are the owner putting money
-     * into the business (see DailyBookEntry) — there's no separate
-     * "starting balance"; the first capital entry effectively is one.
+     * Capital + Sale − cash actually paid out (purchases' paid_amount,
+     * expenses, supplier payments), across ALL TIME — deliberately not scoped
+     * to the Summary page's selected range, since "cash in hand" only makes
+     * sense as a running balance from the first entry ever logged. A
+     * purchase on credit only takes out what was paid at the time; the rest
+     * leaves the till later, as supplier payments. 'capital' entries are the
+     * owner putting money in (see DailyBookEntry) — the first one
+     * effectively is the starting balance.
      */
     protected function cashInHand(?int $siteId): float
     {
-        $allTime = fn (string $type) => DailyBookEntry::where('type', $type)
+        $allTime = fn (string $type, string $column = 'amount') => (float) DailyBookEntry::where('type', $type)
             ->when($siteId && $type !== 'expense', fn ($q) => $q->where('site_id', $siteId))
-            ->sum('amount');
+            ->sum($column);
 
-        return (float) $allTime('capital')
-            + (float) $allTime('sale')
-            - (float) $allTime('purchase')
-            - (float) $allTime('expense');
+        return $allTime('capital')
+            + $allTime('sale')
+            - $allTime('purchase', 'paid_amount')
+            - $allTime('expense')
+            - $allTime(DailyBookEntry::SUPPLIER_PAYMENT);
     }
 
     /**
@@ -178,7 +184,7 @@ class DailyBookController extends Controller implements HasMiddleware
     {
         $this->assertValidType($type);
 
-        $entries = DailyBookEntry::with(['site', 'attachments'])
+        $entries = DailyBookEntry::with(['site', 'attachments', 'party'])
             ->where('type', $type)
             ->orderByDesc('entry_date')
             ->orderByDesc('id')
@@ -197,6 +203,9 @@ class DailyBookController extends Controller implements HasMiddleware
         return view('admin.daily-book.entry-create', [
             'type' => $type,
             'sites' => Site::where('status', true)->orderBy('name')->get(),
+            'suppliers' => $type === 'purchase'
+                ? Party::where('is_supplier', true)->where('status', true)->orderBy('name')->get(['id', 'name', 'phone'])
+                : collect(),
         ]);
     }
 
@@ -204,7 +213,9 @@ class DailyBookController extends Controller implements HasMiddleware
     {
         $this->assertValidType($type);
 
-        $validated = $request->validate([
+        $isPurchase = $type === 'purchase';
+
+        $rules = [
             'entry_date' => ['required', 'date'],
             'amount' => ['required', 'numeric', 'min:0.01'],
             'site_id' => ['nullable', 'exists:sites,id'],
@@ -214,16 +225,53 @@ class DailyBookController extends Controller implements HasMiddleware
             // Not required: the whole point of Daily Book is zero-friction
             // logging, so a missing photo must never block saving.
             'photo' => ['nullable', 'image', 'max:8192'],
+        ];
+
+        if ($isPurchase) {
+            $rules += [
+                // Prefilled with the full amount on the form, so a cash
+                // purchase needs no extra typing; anything less is a due.
+                'paid_amount' => ['required', 'numeric', 'min:0', 'lte:amount'],
+                'party_id' => ['nullable', Rule::exists('parties', 'id')->where('is_supplier', true)],
+                // Quick add — just name + phone, the same two things a
+                // shop owner writes in their khata for a new Supplier.
+                'new_party_name' => ['nullable', 'required_with:new_party_phone', 'string', 'max:255'],
+                'new_party_phone' => ['nullable', 'required_with:new_party_name', 'string', 'max:30'],
+            ];
+        }
+
+        $validated = $request->validate($rules, [
+            'paid_amount.lte' => __('Paid amount can\'t be more than the purchase amount.'),
         ]);
 
-        $entry = DailyBookEntry::create([
-            'type' => $type,
-            'site_id' => $validated['site_id'] ?? Auth::user()->current_site_id,
-            'entry_date' => $validated['entry_date'],
-            'amount' => $validated['amount'],
-            'note' => $validated['note'] ?? null,
-            'created_by' => Auth::id(),
-        ]);
+        $hasSupplier = ! empty($validated['party_id']) || ! empty($validated['new_party_name']);
+
+        if ($isPurchase && ! $hasSupplier && (float) $validated['paid_amount'] < (float) $validated['amount']) {
+            throw ValidationException::withMessages([
+                'party_id' => __('To keep a due, choose or add the supplier you owe.'),
+            ]);
+        }
+
+        $reusedParty = null;
+
+        $entry = DB::transaction(function () use ($validated, $type, $isPurchase, &$reusedParty) {
+            $partyId = null;
+
+            if ($isPurchase) {
+                [$partyId, $reusedParty] = $this->resolveSupplier($validated);
+            }
+
+            return DailyBookEntry::create([
+                'type' => $type,
+                'site_id' => $validated['site_id'] ?? Auth::user()->current_site_id,
+                'party_id' => $partyId,
+                'entry_date' => $validated['entry_date'],
+                'amount' => $validated['amount'],
+                'paid_amount' => $isPurchase ? $validated['paid_amount'] : null,
+                'note' => $validated['note'] ?? null,
+                'created_by' => Auth::id(),
+            ]);
+        });
 
         if ($request->hasFile('photo')) {
             $file = $request->file('photo');
@@ -236,8 +284,143 @@ class DailyBookController extends Controller implements HasMiddleware
             ]);
         }
 
-        return redirect()->route('daily-book.entries.index', $type)
-            ->with('success', __(':type entry saved.', ['type' => ucfirst($type)]));
+        $message = __(':type entry saved.', ['type' => ucfirst($type)]);
+
+        if ($reusedParty) {
+            $message .= ' '.__('That phone number already belonged to :name, so the purchase was recorded under them.', ['name' => $reusedParty->name]);
+        }
+
+        return redirect()->route('daily-book.entries.index', $type)->with('success', $message);
+    }
+
+    /**
+     * Picks the supplier for a purchase: a quick-added one (name + phone)
+     * wins over the dropdown. Phone is unique on parties, so a quick add
+     * with a number that's already on file reuses that party (marking them
+     * a supplier if they were only a customer) instead of failing — and
+     * returns them so the caller can tell the owner which name it went to.
+     *
+     * @return array{0: ?int, 1: ?Party} [party id, the existing party reused by phone (if any)]
+     */
+    protected function resolveSupplier(array $validated): array
+    {
+        if (empty($validated['new_party_name'])) {
+            return [$validated['party_id'] ?? null, null];
+        }
+
+        $phone = trim($validated['new_party_phone']);
+        $existing = Party::where('phone', $phone)->first();
+
+        if ($existing) {
+            if (! $existing->is_supplier) {
+                $existing->update(['is_supplier' => true]);
+            }
+
+            return [$existing->id, $existing];
+        }
+
+        // No opening balance, so Party's created() hook posts nothing to
+        // the ledger — the supplier's dues stay Daily-Book-only.
+        $party = Party::create([
+            'name' => trim($validated['new_party_name']),
+            'phone' => $phone,
+            'is_supplier' => true,
+            'status' => true,
+        ]);
+
+        return [$party->id, null];
+    }
+
+    /**
+     * Every supplier with their outstanding Daily Book due, highest first,
+     * with Quick Pay. Inactive suppliers still show while they're owed
+     * money, so a due can never disappear from view.
+     */
+    public function supplierIndex()
+    {
+        $dues = DailyBookEntry::supplierDues();
+
+        $suppliers = Party::where('is_supplier', true)
+            ->where(fn ($q) => $q->where('status', true)->orWhereIn('id', $dues->keys()))
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone'])
+            ->each(fn (Party $party) => $party->setAttribute('daily_book_due', $dues[$party->id] ?? 0.0))
+            ->sortByDesc('daily_book_due')
+            ->values();
+
+        return view('admin.daily-book.supplier-index', [
+            'suppliers' => $suppliers,
+            'totalDue' => $suppliers->sum('daily_book_due'),
+        ]);
+    }
+
+    /**
+     * Add Supplier from the supplier list — same name + phone as the
+     * purchase form's quick add. Phone is unique on parties: a number
+     * that's already a customer just gets the supplier flag too (one
+     * person, two roles — the parties table's own convention); one that's
+     * already a supplier is refused, since they're already on the list.
+     */
+    public function supplierStore(Request $request)
+    {
+        $validated = $request->validate([
+            'name' => ['required', 'string', 'max:255'],
+            'phone' => ['required', 'string', 'max:30'],
+        ]);
+
+        $phone = trim($validated['phone']);
+        $existing = Party::where('phone', $phone)->first();
+
+        if ($existing?->is_supplier) {
+            throw ValidationException::withMessages([
+                'phone' => __(':name is already on your supplier list with this phone number.', ['name' => $existing->name]),
+            ]);
+        }
+
+        if ($existing) {
+            $existing->update(['is_supplier' => true, 'status' => true]);
+            $message = __(':name was already saved with this phone number — added to your suppliers.', ['name' => $existing->name]);
+        } else {
+            // No opening balance, so Party's created() hook posts nothing to
+            // the ledger.
+            $party = Party::create([
+                'name' => trim($validated['name']),
+                'phone' => $phone,
+                'is_supplier' => true,
+                'status' => true,
+            ]);
+            $message = __('Supplier :name added.', ['name' => $party->name]);
+        }
+
+        return redirect()->route('daily-book.suppliers.index')->with('success', $message);
+    }
+
+    public function supplierPay(Request $request, Party $party)
+    {
+        abort_unless($party->is_supplier, 404);
+
+        $due = DailyBookEntry::supplierDues()[$party->id] ?? 0.0;
+
+        $validated = $request->validate([
+            'amount' => ['required', 'numeric', 'min:0.01', 'max:'.$due],
+            'entry_date' => ['required', 'date'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ], [
+            'amount.max' => __('You only owe :name :due.', ['name' => $party->name, 'due' => number_format($due, 2)]),
+        ]);
+
+        DailyBookEntry::create([
+            'type' => DailyBookEntry::SUPPLIER_PAYMENT,
+            'site_id' => Auth::user()->current_site_id,
+            'party_id' => $party->id,
+            'entry_date' => $validated['entry_date'],
+            'amount' => $validated['amount'],
+            'note' => $validated['note'] ?? null,
+            'created_by' => Auth::id(),
+        ]);
+
+        return redirect()->route('daily-book.suppliers.index')
+            ->with('success', __('Paid :amount to :name.', ['amount' => number_format((float) $validated['amount'], 2), 'name' => $party->name]));
     }
 
     protected function assertValidType(string $type): void

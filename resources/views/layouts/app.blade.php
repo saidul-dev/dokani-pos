@@ -117,6 +117,12 @@
                             <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Capital Entry') }}</span>
                         </x-sidebar-link>
 
+                        <x-sidebar-link :href="route('daily-book.suppliers.index')" :active="request()->routeIs('daily-book.suppliers.*')"
+                            :title="__('Suppliers')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 0 0 3.741-.479 3 3 0 0 0-4.682-2.72m.94 3.198.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0 1 12 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 0 1 6 18.719m12 0a5.971 5.971 0 0 0-.941-3.197m0 0A5.995 5.995 0 0 0 12 12.75a5.995 5.995 0 0 0-5.058 2.772m0 0a3 3 0 0 0-4.681 2.72 8.986 8.986 0 0 0 3.74.477m.94-3.197a5.971 5.971 0 0 0-.94 3.197M15 6.75a3 3 0 1 1-6 0 3 3 0 0 1 6 0Zm6 3a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Zm-13.5 0a2.25 2.25 0 1 1-4.5 0 2.25 2.25 0 0 1 4.5 0Z"/></svg>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Suppliers') }}</span>
+                        </x-sidebar-link>
+
                         @can('daily-book.edit')
                         <x-sidebar-link :href="route('daily-book.settings.edit')" :active="request()->routeIs('daily-book.settings.*')"
                             :title="__('Settings')">
@@ -153,6 +159,10 @@
                             <x-sidebar-sublink :href="route('daily-book.entries.index', 'capital')"
                                 :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'capital'">
                                 {{ __('Capital Entry') }}
+                            </x-sidebar-sublink>
+                            <x-sidebar-sublink :href="route('daily-book.suppliers.index')"
+                                :active="request()->routeIs('daily-book.suppliers.*')">
+                                {{ __('Suppliers') }}
                             </x-sidebar-sublink>
                             @can('daily-book.edit')
                             <x-sidebar-sublink :href="route('daily-book.settings.edit')"

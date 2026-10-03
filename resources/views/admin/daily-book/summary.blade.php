@@ -54,14 +54,15 @@
         @endif
 
         <!-- Cash in Hand — deliberately NOT part of the day/week/month/custom range above:
-             it's a running, all-time balance (Total Capital + Total Sale − Total Purchase
-             − Total Expense, since the very first entry ever logged), not a per-period figure. -->
+             it's a running, all-time balance (Capital + Sale − cash actually paid out, since
+             the very first entry ever logged), not a per-period figure. See
+             DailyBookController::cashInHand. -->
         <div class="relative overflow-hidden rounded-2xl bg-gradient-to-br from-brand-800 to-brand-900 p-4 sm:p-5 shadow-sm">
             <div class="relative flex items-center justify-between gap-3">
                 <div class="min-w-0">
                     <p class="text-sm font-medium text-brand-200">{{ __('Cash in Hand') }}</p>
                     <p class="mt-1.5 text-2xl sm:text-3xl font-bold text-white break-words">{{ number_format($cashInHand, 2) }}</p>
-                    <p class="mt-1 text-xs text-brand-300">{{ __('All-time — Capital + Sale − Purchase − Expense') }}</p>
+                    <p class="mt-1 text-xs text-brand-300">{{ __('All-time — Capital + Sale − cash paid (purchases, expenses, supplier payments)') }}</p>
                 </div>
                 <span class="grid h-12 w-12 shrink-0 place-items-center rounded-xl bg-white/10 text-accent-400">
                     <svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 8.25h19.5M2.25 9h19.5m-16.5 5.25h6m-6 2.25h3M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Z"/></svg>
