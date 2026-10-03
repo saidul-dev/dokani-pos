@@ -51,7 +51,14 @@
 
             <!-- Navigation -->
             <nav class="sidebar-scroll flex-1 overflow-y-auto overflow-x-hidden px-3 py-4 space-y-6">
+                @php
+                    // Daily-Book-only shop owners: no Dashboard (DashboardController
+                    // sends them to the Daily Book Summary instead), no section
+                    // headings, just the Daily Book pages as flat links.
+                    $dailyBookOnly = Auth::user()->hasRole('Daily Book Admin');
+                @endphp
                 <div>
+                    @unless ($dailyBookOnly)
                     <p class="nav-label px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-brand-300/70"
                         :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Main') }}</p>
                     <x-sidebar-link :href="route('dashboard')" :active="request()->routeIs('dashboard')"
@@ -64,44 +71,97 @@
                         <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Dashboard')
                             }}</span>
                     </x-sidebar-link>
+                    @endunless
 
                     @can('daily-book.view')
-                    <x-sidebar-dropdown :title="__('Daily Book')" :active="request()->routeIs('daily-book.*')">
-                        <x-slot name="icon">
-                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
-                                stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round"
-                                    d="M12 6.75a5.25 5.25 0 0 1 6.775-5.025.75.75 0 0 1 .313 1.248l-3.32 3.319c.063.475.276.934.641 1.299.365.365.824.578 1.3.64l3.318-3.319a.75.75 0 0 1 1.248.313 5.25 5.25 0 0 1-5.472 6.756c-1.018-.086-1.87.1-2.309.634L7.344 21.3A3.298 3.298 0 1 1 2.7 16.657l8.684-7.151c.533-.44.72-1.291.634-2.309A5.342 5.342 0 0 1 12 6.75ZM4.117 19.125a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z" />
+                        @if ($dailyBookOnly)
+                        {{-- A Daily-Book-only user has no other modules to reach, so the
+                             usual dropdown (built for someone who also has Purchase/Sales/
+                             etc. and needs Daily Book collapsed out of the way) is just an
+                             extra click here — show its six pages as flat top-level links
+                             instead. Anyone with daily-book.view *and* other module
+                             permissions still gets the dropdown below. --}}
+                        <x-sidebar-link :href="route('daily-book.summary')" :active="request()->routeIs('daily-book.summary')"
+                            :title="__('Summary')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z" />
                             </svg>
-                        </x-slot>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Summary') }}</span>
+                        </x-sidebar-link>
 
-                        <x-sidebar-sublink :href="route('daily-book.summary')"
-                            :active="request()->routeIs('daily-book.summary')">
-                            {{ __('Summary') }}
-                        </x-sidebar-sublink>
-                        <x-sidebar-sublink :href="route('daily-book.entries.index', 'purchase')"
-                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'purchase'">
-                            {{ __('Purchase Entry') }}
-                        </x-sidebar-sublink>
-                        <x-sidebar-sublink :href="route('daily-book.entries.index', 'sale')"
-                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'sale'">
-                            {{ __('Sale Entry') }}
-                        </x-sidebar-sublink>
-                        <x-sidebar-sublink :href="route('daily-book.entries.index', 'expense')"
-                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'expense'">
-                            {{ __('Expense Entry') }}
-                        </x-sidebar-sublink>
-                        <x-sidebar-sublink :href="route('daily-book.entries.index', 'capital')"
-                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'capital'">
-                            {{ __('Capital Entry') }}
-                        </x-sidebar-sublink>
+                        <x-sidebar-link :href="route('daily-book.entries.index', 'purchase')"
+                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'purchase'"
+                            :title="__('Purchase Entry')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.887-4.598 2.24-6.62.03-.176-.114-.33-.292-.33H5.706M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/></svg>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Purchase Entry') }}</span>
+                        </x-sidebar-link>
+
+                        <x-sidebar-link :href="route('daily-book.entries.index', 'sale')"
+                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'sale'"
+                            :title="__('Sale Entry')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941"/></svg>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Sale Entry') }}</span>
+                        </x-sidebar-link>
+
+                        <x-sidebar-link :href="route('daily-book.entries.index', 'expense')"
+                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'expense'"
+                            :title="__('Expense Entry')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v12m-3-2.818.879.659c1.171.879 3.07.879 4.242 0 1.172-.879 1.172-2.303 0-3.182C13.536 12.219 12.768 12 12 12c-.725 0-1.45-.22-2.003-.659-1.106-.879-1.106-2.303 0-3.182s2.9-.879 4.006 0l.415.33M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Expense Entry') }}</span>
+                        </x-sidebar-link>
+
+                        <x-sidebar-link :href="route('daily-book.entries.index', 'capital')"
+                            :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'capital'"
+                            :title="__('Capital Entry')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m16.5-18v18M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6 21v-3.375c0-.621.504-1.125 1.125-1.125h1.5c.621 0 1.125.504 1.125 1.125V21"/></svg>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Capital Entry') }}</span>
+                        </x-sidebar-link>
+
                         @can('daily-book.edit')
-                        <x-sidebar-sublink :href="route('daily-book.settings.edit')"
-                            :active="request()->routeIs('daily-book.settings.*')">
-                            {{ __('Settings') }}
-                        </x-sidebar-sublink>
+                        <x-sidebar-link :href="route('daily-book.settings.edit')" :active="request()->routeIs('daily-book.settings.*')"
+                            :title="__('Settings')">
+                            <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 0 1 1.37.49l1.296 2.247a1.125 1.125 0 0 1-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 0 1 0 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 0 1-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 0 1-.22.128c-.331.183-.581.495-.644.869l-.213 1.281c-.09.543-.56.94-1.11.94h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 0 1-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 0 1-1.369-.49l-1.297-2.247a1.125 1.125 0 0 1 .26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 0 1 0-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 0 1-.26-1.43l1.297-2.247a1.125 1.125 0 0 1 1.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.086.22-.128.332-.183.582-.495.644-.869l.214-1.28Z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/></svg>
+                            <span class="nav-label" :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Settings') }}</span>
+                        </x-sidebar-link>
                         @endcan
-                    </x-sidebar-dropdown>
+                        @else
+                        <x-sidebar-dropdown :title="__('Daily Book')" :active="request()->routeIs('daily-book.*')">
+                            <x-slot name="icon">
+                                <svg class="h-5 w-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke-width="1.8"
+                                    stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round"
+                                        d="M12 6.75a5.25 5.25 0 0 1 6.775-5.025.75.75 0 0 1 .313 1.248l-3.32 3.319c.063.475.276.934.641 1.299.365.365.824.578 1.3.64l3.318-3.319a.75.75 0 0 1 1.248.313 5.25 5.25 0 0 1-5.472 6.756c-1.018-.086-1.87.1-2.309.634L7.344 21.3A3.298 3.298 0 1 1 2.7 16.657l8.684-7.151c.533-.44.72-1.291.634-2.309A5.342 5.342 0 0 1 12 6.75ZM4.117 19.125a.75.75 0 0 1 .75-.75h.008a.75.75 0 0 1 .75.75v.008a.75.75 0 0 1-.75.75h-.008a.75.75 0 0 1-.75-.75v-.008Z" />
+                                </svg>
+                            </x-slot>
+
+                            <x-sidebar-sublink :href="route('daily-book.summary')"
+                                :active="request()->routeIs('daily-book.summary')">
+                                {{ __('Summary') }}
+                            </x-sidebar-sublink>
+                            <x-sidebar-sublink :href="route('daily-book.entries.index', 'purchase')"
+                                :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'purchase'">
+                                {{ __('Purchase Entry') }}
+                            </x-sidebar-sublink>
+                            <x-sidebar-sublink :href="route('daily-book.entries.index', 'sale')"
+                                :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'sale'">
+                                {{ __('Sale Entry') }}
+                            </x-sidebar-sublink>
+                            <x-sidebar-sublink :href="route('daily-book.entries.index', 'expense')"
+                                :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'expense'">
+                                {{ __('Expense Entry') }}
+                            </x-sidebar-sublink>
+                            <x-sidebar-sublink :href="route('daily-book.entries.index', 'capital')"
+                                :active="request()->routeIs('daily-book.entries.*') && request()->route('type') === 'capital'">
+                                {{ __('Capital Entry') }}
+                            </x-sidebar-sublink>
+                            @can('daily-book.edit')
+                            <x-sidebar-sublink :href="route('daily-book.settings.edit')"
+                                :active="request()->routeIs('daily-book.settings.*')">
+                                {{ __('Settings') }}
+                            </x-sidebar-sublink>
+                            @endcan
+                        </x-sidebar-dropdown>
+                        @endif
                     @endcan
 
                     @can('accounts.view')
@@ -119,8 +179,10 @@
                 </div>
 
                 <div>
+                    @unless ($dailyBookOnly)
                     <p class="nav-label px-3 mb-2 text-[11px] font-semibold uppercase tracking-wider text-brand-300/70"
                         :class="$store.sidebar.collapsed && 'lg:hidden'">{{ __('Operations') }}</p>
+                    @endunless
 
                     @can('sourcing.view')
                     <x-sidebar-dropdown :title="__('Purchase')" :active="request()->routeIs('purchases.*', 'purchase-requisitions.*')">

@@ -147,6 +147,7 @@
                 $demoAccounts = [
                 ['role' => 'Super Admin', 'email' => 'admin@businesserp.test'],
                 ['role' => 'Company Admin', 'email' => 'owner@businesserp.test'],
+                ['role' => 'Shop Owner (Daily Book)', 'email' => 'dailybook@businesserp.test'],
                 ['role' => 'Branch Manager', 'email' => 'manager@businesserp.test'],
                 ['role' => 'HR Executive', 'email' => 'hr@businesserp.test'],
                 ['role' => 'Head Accountant', 'email' => 'accountant@businesserp.test'],

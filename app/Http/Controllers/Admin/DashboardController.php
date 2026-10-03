@@ -23,6 +23,13 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        // Daily-Book-only shop owners have no use for this ERP-wide digest
+        // (and no sidebar link to it) — login lands here by default, so send
+        // them to their own home page instead.
+        if (Auth::user()->hasRole('Daily Book Admin')) {
+            return redirect()->route('daily-book.summary');
+        }
+
         $siteId = Auth::user()->current_site_id;
 
         $todaySales = (float) Sale::whereDate('order_date', today())

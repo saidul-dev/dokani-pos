@@ -25,12 +25,6 @@
         </div>
     </x-slot>
 
-    @if (session('success'))
-    <div class="mb-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
-        {{ session('success') }}
-    </div>
-    @endif
-
     <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 overflow-hidden">
         <div class="overflow-x-auto">
         <table class="w-full min-w-[680px] text-sm">

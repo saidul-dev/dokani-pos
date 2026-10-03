@@ -197,8 +197,15 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   `resources/views/admin/daily-book/summary.blade.php`) — a day/week/month/**custom**
   toggle (custom range takes `from`/`to` query params, defaults to today when absent,
   auto-swaps a backwards range) showing, for the selected range: Total Purchase, Total
-  Sale, Total Expense, Gross Profit (Sale − Purchase), Net Profit (Gross Profit −
-  Expense), and — once a margin is configured — Estimated Profit. Plus, **independent of
+  Sale, Total Expense, Gross Profit (**Sale × profit %**), and Net Profit (Gross Profit −
+  Expense) — both shown as "—" with a "set your profit %" prompt until Settings has a
+  margin. Gross Profit was first built as Sale − Purchase; the client caught (2026-10-03)
+  that this books every purchase as an immediate loss (৳1,00,000 invested + ৳20,000 of
+  stock bought + nothing sold showed −৳20,000 profit, when it should be ৳0 — unsold stock
+  is still the shop's inventory). With no per-item cost in Daily Book, the owner's margin %
+  is the only cost basis, so it now drives Gross Profit directly, and the separate
+  "Estimated Profit" card (which computed the same Sale × % figure) was folded into it.
+  Plus, **independent of
   the range toggle**, an all-time **Cash in Hand** figure (Total Capital + Total Sale −
   Total Purchase − Total Expense, since the very first entry ever logged). **Sourced
   entirely from `DailyBookEntry`** — not from the real `Purchase`/`Sale`/`Expense` tables.
@@ -239,11 +246,11 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   **Settings** (`daily-book.settings.*` routes, gated by the stricter
   **`daily-book.edit`** permission rather than `.view` — only Admin/Super Admin have it
   by default) — one field, `CompanySetting::daily_book_profit_margin_percent` (nullable
-  decimal, company-wide). Daily Book has no per-product cost, so it can never compute a
-  real profit; this is the owner's own rough guess at their typical margin, and Summary's
-  Estimated Profit is simply `Total Sale × this percentage`, hidden entirely when the
-  field is null (never treated as 0%). Explicitly labeled as an approximation, not a
-  calculation, everywhere it appears. (A `daily_book_initial_balance` column was briefly
+  decimal, company-wide). Daily Book has no per-product cost, so this is the owner's own
+  rough figure for their typical profit on sales, and Summary's Gross Profit is
+  `Total Sale × this percentage` (Net Profit then subtracts Expense). Null means Gross/Net
+  Profit can't be computed and show as "—" — never treated as 0%. (A
+  `daily_book_initial_balance` column was briefly
   added here and then removed before ever being migrated, once Capital Entry replaced
   the initial-balance idea — see above.)
 
@@ -391,10 +398,19 @@ confirm against `Purchase::STATUSES` semantics when this is built.
   so its own Summary can't depend on that system having data. If a future need arises to
   also see real-transaction totals in one place, that's the full system's own
   reports/dashboard, not something Daily Book's Summary should absorb.
-- **No enforcement of a "Daily Book only" trial tier** — see "Commercial motive" above;
-  today `daily-book.view`/`.edit` are just permissions like any other, with no
-  plan/subscription concept restricting a company to Daily Book alone. Flagged, not
-  scoped.
+- ~~**No enforcement of a "Daily Book only" trial tier**~~ — partially addressed
+  (2026-10-03): a **"Daily Book Admin"** role now exists
+  (`RolePermissionSeeder`/`RoleController::ROLE_ORDER` — note the role order list is
+  duplicated in both places, keep them in sync), holding only `daily-book.view` +
+  `daily-book.edit` and nothing else. A user with just this role sees Dashboard + Daily
+  Book in the sidebar and gets a 403 on every other module (verified: purchases, sales,
+  pos, parties, sites, users, bank-accounts, ai-terminal). This is the shop-owner's "own
+  admin, scoped to what they've bought so far" — upgrading them to the full ERP later is
+  just assigning a broader role (Admin/Manager/etc.), no code change needed. What's still
+  missing: this is a role an Admin has to deliberately choose to assign — there's no
+  product/plan concept that *forces* a newly-signed-up company onto this role, or that
+  blocks an Admin from just assigning themselves everything. If the sales motion needs
+  that enforced (not just offered), that's still unscoped.
 
 ### Suggested decomposition when this gets picked up
 
@@ -411,7 +427,8 @@ confirm against `Purchase::STATUSES` semantics when this is built.
 7. ~~Optional receipt/bill photo per entry~~ Done — `HasAttachments` / `Attachment`,
    camera-capture input, never required.
 8. ~~Approximate profit margin setting~~ Done — `daily-book.settings.*`,
-   `CompanySetting::daily_book_profit_margin_percent`, Estimated Profit on Summary.
+   `CompanySetting::daily_book_profit_margin_percent`, which drives Gross/Net Profit on
+   Summary (Gross Profit = Sale × %).
 9. **Remaining/unscoped:** an actual Daily-Book-only trial tier enforced in software (see
    "Commercial motive"), and any in-app nudge toward upgrading to the full system.
 

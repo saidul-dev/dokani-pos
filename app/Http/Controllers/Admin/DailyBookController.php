@@ -87,30 +87,23 @@ class DailyBookController extends Controller implements HasMiddleware
         $totalSale = (float) $baseQuery('sale')->sum('amount');
         $totalExpense = (float) $baseQuery('expense')->sum('amount');
 
-        // Sale − Purchase: Purchase stands in for cost of goods sold here
-        // (Daily Book has no per-product cost to subtract instead), and
-        // Expense is deliberately left out — it's an operating cost, not a
-        // cost of the goods themselves, same distinction as gross vs. net
-        // profit in a real P&L. Unlike Estimated Profit below, this is a
-        // real number straight from the logged entries, not a guess.
-        $grossProfit = $totalSale - $totalPurchase;
-
-        // Net Profit = Gross Profit − Expense, the standard next line down
-        // from Gross Profit in any P&L. Still a real number (no margin %
-        // guesswork involved) — Estimated Profit below is the separate,
-        // approximate figure.
-        $netProfit = $grossProfit - $totalExpense;
-
         $marginPercent = CompanySetting::current()->daily_book_profit_margin_percent;
 
-        // Rough estimate only — Daily Book has no per-product cost, so this
-        // is "Sale × the owner's own guessed margin %", never a real
-        // cost-based profit. Null (not yet configured) is kept distinct
-        // from 0% — see Settings below and the view, which must not treat
-        // "not set" as "0% margin".
-        $estimatedProfit = $marginPercent !== null
+        // Purchase can't be used as cost of goods sold: stock that's been
+        // bought but not yet sold is still the shop's inventory, not a loss
+        // (buying ৳20,000 of goods and selling none is ৳0 profit, not
+        // −৳20,000). Daily Book has no per-item cost to work out what the
+        // sold goods actually cost, so the owner's own margin % (Settings)
+        // is the only cost basis available: Gross Profit = Sale × margin %.
+        // Null margin means it can't be computed yet — kept distinct from
+        // 0%, and the view prompts to set it rather than showing 0.
+        $grossProfit = $marginPercent !== null
             ? $totalSale * ((float) $marginPercent / 100)
             : null;
+
+        // Expense is an operating cost, not a cost of the goods, so it comes
+        // off at the Net line — same gross vs. net split as a real P&L.
+        $netProfit = $grossProfit !== null ? $grossProfit - $totalExpense : null;
 
         return view('admin.daily-book.summary', [
             'range' => $range,
@@ -123,7 +116,6 @@ class DailyBookController extends Controller implements HasMiddleware
             'grossProfit' => $grossProfit,
             'netProfit' => $netProfit,
             'marginPercent' => $marginPercent,
-            'estimatedProfit' => $estimatedProfit,
             'cashInHand' => $this->cashInHand($siteId),
         ]);
     }

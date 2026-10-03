@@ -41,6 +41,14 @@ class DatabaseSeeder extends Seeder
             ['name' => 'Company Admin', 'password' => 'password']
         )->syncRoles('Admin');
 
+        // A shop that has only bought/been given Daily Book so far — see
+        // docs/future-ideas.md's "Daily Book" entry, "Commercial motive"
+        // section, and the "Daily Book Admin" role in RolePermissionSeeder.
+        User::firstOrCreate(
+            ['email' => 'dailybook@businesserp.test'],
+            ['name' => 'Shop Owner', 'password' => 'password']
+        )->syncRoles('Daily Book Admin');
+
         User::firstOrCreate(
             ['email' => 'manager@businesserp.test'],
             ['name' => 'Branch Manager', 'password' => 'password']

@@ -4,16 +4,10 @@
         <div>
             <h2 class="text-xl sm:text-2xl font-bold text-brand-900">{{ __('Daily Book Settings') }}</h2>
             <p class="text-sm text-slate-500 mt-0.5">
-                {{ __('An approximate profit margin, used only to estimate profit on the Daily Book Summary.') }}
+                {{ __('Your profit % on sales — used to calculate Gross and Net Profit on the Daily Book Summary.') }}
             </p>
         </div>
     </x-slot>
-
-    @if (session('success'))
-    <div class="mb-6 rounded-xl bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-700 ring-1 ring-emerald-200">
-        {{ session('success') }}
-    </div>
-    @endif
 
     <form method="POST" action="{{ route('daily-book.settings.update') }}" class="w-full">
         @csrf
@@ -35,12 +29,12 @@
 
             <div class="rounded-xl bg-amber-50 px-4 py-3 ring-1 ring-amber-200">
                 <p class="text-xs text-amber-800">
-                    {{ __('This is a guess, not a real calculation — Daily Book has no product cost, so it can\'t know your actual profit. Set this to roughly what you usually make on what you sell (e.g. if you generally keep about ৳15 for every ৳100 you sell, enter 15). Estimated Profit on the Summary page is simply Total Sale × this percentage.') }}
+                    {{ __('Daily Book doesn\'t record what each item cost, so it uses this percentage to work out profit. Set it to roughly what you usually make on what you sell (e.g. if you generally keep about ৳15 for every ৳100 you sell, enter 15). Gross Profit = Total Sale × this percentage; Net Profit = Gross Profit − Total Expense. Purchases alone never count as a loss — stock you haven\'t sold yet is still yours.') }}
                 </p>
             </div>
 
             <p class="text-xs text-slate-400">
-                {{ __('Leave this blank to hide the Estimated Profit figure on the Summary page.') }}
+                {{ __('While this is blank, Gross and Net Profit show as "—" on the Summary page.') }}
             </p>
         </div>
 

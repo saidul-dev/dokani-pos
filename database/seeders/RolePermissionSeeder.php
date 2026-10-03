@@ -13,7 +13,7 @@ class RolePermissionSeeder extends Seeder
      * Canonical display order for role lists (Roles & Permissions page,
      * the Users form role picker). Not creation order — just presentation.
      */
-    public const ROLE_ORDER = ['Super Admin', 'Admin', 'Manager', 'HR', 'Accountant', 'Store-keeper', 'Sales', 'Employee'];
+    public const ROLE_ORDER = ['Super Admin', 'Admin', 'Daily Book Admin', 'Manager', 'HR', 'Accountant', 'Store-keeper', 'Sales', 'Employee'];
 
     /**
      * ERP modules (README §3) and the actions available on each.
@@ -61,6 +61,18 @@ class RolePermissionSeeder extends Seeder
         // "Site Manager" role is needed.
         Role::findOrCreate('Admin')
             ->syncPermissions(Permission::all());
+
+        // A small-shop owner who has only bought/been given Daily Book so
+        // far — their own "admin," but scoped entirely to that one module
+        // (Summary + Purchase/Sale/Expense/Capital Entry + Settings). No
+        // access to Purchase/Sales/POS/Inventory/Accounts/HRM/etc. — those
+        // only open up once the shop upgrades to a role like Admin/Manager
+        // that holds those modules' permissions. See docs/future-ideas.md's
+        // "Daily Book" entry, "Commercial motive" section.
+        Role::findOrCreate('Daily Book Admin')->syncPermissions([
+            'daily-book.view',
+            'daily-book.edit',
+        ]);
 
         Role::findOrCreate('Manager')->syncPermissions([
             'daily-book.view',

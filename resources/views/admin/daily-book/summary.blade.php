@@ -86,7 +86,21 @@
                 <div class="relative flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="text-sm font-medium text-slate-500">{{ $stat['label'] }}</p>
-                        <p class="mt-1.5 text-xl sm:text-2xl font-bold {{ $stat['icon'] === 'gross' && $stat['value'] < 0 ? 'text-rose-500' : 'text-brand-900' }} break-words">{{ number_format($stat['value'], 2) }}</p>
+                        @if ($stat['value'] === null)
+                        {{-- Gross Profit with no margin % configured yet — see Settings --}}
+                        <p class="mt-1.5 text-xl sm:text-2xl font-bold text-slate-300">—</p>
+                        @else
+                        <p class="mt-1.5 text-xl sm:text-2xl font-bold text-brand-900 break-words">{{ number_format($stat['value'], 2) }}</p>
+                        @endif
+                        @if ($stat['icon'] === 'gross')
+                        <p class="mt-0.5 text-xs text-slate-400">
+                            @if ($marginPercent !== null)
+                                {{ __('Sale × :margin%', ['margin' => rtrim(rtrim(number_format($marginPercent, 2), '0'), '.')]) }}
+                            @else
+                                {{ __('Profit % not set') }}
+                            @endif
+                        </p>
+                        @endif
                     </div>
                     <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-900 text-accent-400">
                         @if ($stat['icon'] === 'purchase')
@@ -104,33 +118,30 @@
             @endforeach
         </div>
 
-        <!-- Net Profit = Gross Profit − Expense — a real figure from logged entries, not a guess -->
+        <!-- Net Profit = Gross Profit − Expense. Gross Profit is Sale × profit % (see
+             DailyBookController::summary for why Purchase isn't used as cost). -->
         <div class="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-slate-200">
             <div class="flex items-center justify-between gap-3">
                 <div class="min-w-0">
                     <h3 class="font-bold text-brand-900 text-sm sm:text-base">{{ __('Net Profit') }}</h3>
                     <p class="text-xs text-slate-400">{{ __('Gross Profit − Total Expense') }}</p>
                 </div>
+                @if ($netProfit === null)
+                <p class="shrink-0 text-xl sm:text-2xl font-bold text-slate-300">—</p>
+                @else
                 <p class="shrink-0 text-xl sm:text-2xl font-bold {{ $netProfit >= 0 ? 'text-emerald-600' : 'text-rose-500' }}">
                     {{ number_format($netProfit, 2) }}
                 </p>
+                @endif
             </div>
         </div>
 
-        <!-- Estimated Profit — only shown once a margin % is configured (Daily Book Settings) -->
-        @if ($marginPercent !== null)
-        <div class="rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-slate-200">
-            <div class="flex items-center justify-between gap-3">
-                <div class="min-w-0">
-                    <h3 class="font-bold text-brand-900 text-sm sm:text-base">{{ __('Estimated Profit') }}</h3>
-                    <p class="text-xs text-slate-400">
-                        {{ __('Total Sale × :margin% margin — an approximation, not a real calculation.', ['margin' => rtrim(rtrim(number_format($marginPercent, 2), '0'), '.')]) }}
-                    </p>
-                </div>
-                <p class="shrink-0 text-xl sm:text-2xl font-bold text-accent-600">
-                    {{ number_format($estimatedProfit, 2) }}
-                </p>
-            </div>
+        @if ($marginPercent === null)
+        <div class="rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-800 ring-1 ring-amber-200">
+            {{ __('Set your profit % to see Gross and Net Profit — profit is calculated as Total Sale × profit %.') }}
+            @can('daily-book.edit')
+            <a href="{{ route('daily-book.settings.edit') }}" class="font-semibold underline">{{ __('Set profit %') }}</a>
+            @endcan
         </div>
         @endif
 
