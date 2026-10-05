@@ -424,19 +424,22 @@ class DailyBookController extends Controller implements HasMiddleware
      * Everyone on one side with their outstanding Daily Book due, highest
      * first, with Quick Pay / Quick Collect. Inactive parties still show
      * while a due is open, so a due can never disappear from view. The
-     * walk-in is left out — it can never carry a due.
+     * walk-in is listed (its ledger is the shop's walk-in sales) but always
+     * last — it can never carry a due, so it never needs collecting from.
      */
     protected function partyIndex(string $side)
     {
         $dues = DailyBookEntry::dues($side);
 
         $parties = Party::where(DailyBookEntry::SIDES[$side]['flag'], true)
-            ->where('phone', '!=', Party::WALKIN_PHONE)
             ->where(fn ($q) => $q->where('status', true)->orWhereIn('id', $dues->keys()))
             ->orderBy('name')
             ->get(['id', 'name', 'phone'])
             ->each(fn (Party $party) => $party->setAttribute('daily_book_due', $dues[$party->id] ?? 0.0))
-            ->sortByDesc('daily_book_due')
+            ->sortBy([
+                fn (Party $a, Party $b) => $a->isWalkIn() <=> $b->isWalkIn(),
+                fn (Party $a, Party $b) => $b->daily_book_due <=> $a->daily_book_due,
+            ])
             ->values();
 
         return view('admin.daily-book.party-index', [
@@ -509,7 +512,9 @@ class DailyBookController extends Controller implements HasMiddleware
      */
     protected function partyLedger(Party $party, string $side)
     {
-        $this->assertOnSide($party, $side);
+        // The walk-in's ledger is allowed (it's the shop's walk-in sales);
+        // only settling against it is blocked, in partySettle().
+        abort_unless($party->{DailyBookEntry::SIDES[$side]['flag']}, 404);
 
         ['entry' => $entryType, 'settle' => $settleType] = DailyBookEntry::SIDES[$side];
 
@@ -550,7 +555,7 @@ class DailyBookController extends Controller implements HasMiddleware
     /** Quick Pay (supplier) / Quick Collect (customer) — can't exceed the open due. */
     protected function partySettle(Request $request, Party $party, string $side)
     {
-        $this->assertOnSide($party, $side);
+        $this->assertCanSettle($party, $side);
 
         $due = DailyBookEntry::dues($side)[$party->id] ?? 0.0;
         $isCustomer = $side === 'customer';
@@ -588,7 +593,8 @@ class DailyBookController extends Controller implements HasMiddleware
         return 'daily-book.'.($side === 'customer' ? 'customers' : 'suppliers').'.'.$action;
     }
 
-    protected function assertOnSide(Party $party, string $side): void
+    /** On this side, and not the walk-in (which never has a due to settle). */
+    protected function assertCanSettle(Party $party, string $side): void
     {
         abort_unless($party->{DailyBookEntry::SIDES[$side]['flag']} && ! $party->isWalkIn(), 404);
     }

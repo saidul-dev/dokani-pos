@@ -286,8 +286,12 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   `supplier*`/`customer*` wrappers for the routes; views are `party-index` /
   `party-ledger` with side-specific wording. A sale with no customer picked is recorded
   against the **Walk-in Customer**, which can never carry a due (blocked client- and
-  server-side, including a forged `party_id`), so it's hidden from the Customers list,
-  the customer picker, and the ledger. Walk-in unification: the app had two — PartySeeder
+  server-side, including a forged `party_id`). It's not a choice in the customer picker
+  (it's what "no customer" means there) and can't be settled against, but it is listed on
+  the Customers page — last, with a "Walk-in" badge — and its ledger shows the shop's
+  walk-in sales; migration `2026_10_05_000002` attached the fully-received sales logged
+  before customers existed (party_id was null) to it, so that history isn't missing.
+  Walk-in unification: the app had two — PartySeeder
   created one under 01700000001 while POS created its own under 0000000000. There is now
   one, `Party::walkIn()` / `Party::WALKIN_PHONE` (0000000000), used by POS, Daily Book and
   the seeder; migration `2026_10_05_000001` re-phones the seeded one when the POS one

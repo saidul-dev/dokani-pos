@@ -1569,5 +1569,7 @@
     "That phone number is reserved for the Walk-in Customer.": "এই ফোন নম্বরটি ওয়াক-ইন গ্রাহকের জন্য সংরক্ষিত।",
     "Customer :name added.": "গ্রাহক :name যোগ হয়েছে।",
     "Collected :amount from :name.": ":name এর কাছ থেকে :amount আদায় হয়েছে।",
-    ":name only owes you :due.": ":name এর কাছে শুধু :due পাওনা।"
+    ":name only owes you :due.": ":name এর কাছে শুধু :due পাওনা।",
+    "Walk-in": "ওয়াক-ইন",
+    "Dues here come from Daily Book sales that weren't fully paid, minus collections made from this page. Walk-in sales are always paid in full, so the Walk-in Customer never has a due.": "এখানের পাওনা আসে দৈনিক খাতার যেসব বিক্রয়ের পুরো টাকা পাওয়া যায়নি সেগুলো থেকে, এই পেজ থেকে করা আদায় বাদ দিয়ে। ওয়াক-ইন বিক্রয়ে সবসময় পুরো টাকা নেওয়া হয়, তাই ওয়াক-ইন গ্রাহকের কোনো পাওনা থাকে না।"
 }

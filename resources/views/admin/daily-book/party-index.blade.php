@@ -17,7 +17,7 @@
         'settleSubmit' => __('Collect'),
         'notePlaceholder' => __('e.g. Received in cash, bKash…'),
         'empty' => __('No customers yet. Add one with "Add Customer" above, or from a Sale Entry.'),
-        'footer' => __('Dues here come from Daily Book sales that weren\'t fully paid, minus collections made from this page. Walk-in sales never carry a due, so the Walk-in Customer isn\'t listed.'),
+        'footer' => __('Dues here come from Daily Book sales that weren\'t fully paid, minus collections made from this page. Walk-in sales are always paid in full, so the Walk-in Customer never has a due.'),
     ] : [
         'title' => __('Suppliers'),
         'heading' => __('Daily Book — Suppliers'),
@@ -114,7 +114,12 @@
                      x-on:keydown.enter="$el.click()"
                      class="-m-2 flex cursor-pointer items-center justify-between gap-3 rounded-xl p-2 hover:bg-slate-50">
                     <div class="min-w-0">
-                        <p class="truncate font-semibold text-slate-800">{{ $party->name }}</p>
+                        <p class="flex items-center gap-2 font-semibold text-slate-800">
+                            <span class="truncate">{{ $party->name }}</span>
+                            @if ($party->isWalkIn())
+                            <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">{{ __('Walk-in') }}</span>
+                            @endif
+                        </p>
                         <p class="text-sm text-slate-500">
                             <a href="tel:{{ $party->phone }}" x-on:click.stop class="hover:text-brand-800">{{ $party->phone }}</a>
                             <span class="text-slate-300">·</span>
