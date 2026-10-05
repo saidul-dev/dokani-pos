@@ -134,13 +134,19 @@ Route::prefix('admin')->group(function () {
         Route::get('/daily-book/settings', [DailyBookController::class, 'editSettings'])->name('daily-book.settings.edit');
         Route::put('/daily-book/settings', [DailyBookController::class, 'updateSettings'])->name('daily-book.settings.update');
 
-        // Supplier (wholesaler) list, Add Supplier, dues + Quick Pay — same
-        // "before {type}" ordering constraint as settings above (the POST
-        // would otherwise hit daily-book.entries.store with type=suppliers).
+        // Suppliers and Customers — list, Add, ledger, Quick Pay / Quick
+        // Collect. Same "before {type}" ordering constraint as settings above
+        // (the POSTs would otherwise hit daily-book.entries.store with
+        // type=suppliers / type=customers).
         Route::get('/daily-book/suppliers', [DailyBookController::class, 'supplierIndex'])->name('daily-book.suppliers.index');
         Route::post('/daily-book/suppliers', [DailyBookController::class, 'supplierStore'])->name('daily-book.suppliers.store');
         Route::get('/daily-book/suppliers/{party}/ledger', [DailyBookController::class, 'supplierLedger'])->name('daily-book.suppliers.ledger');
         Route::post('/daily-book/suppliers/{party}/pay', [DailyBookController::class, 'supplierPay'])->name('daily-book.suppliers.pay');
+
+        Route::get('/daily-book/customers', [DailyBookController::class, 'customerIndex'])->name('daily-book.customers.index');
+        Route::post('/daily-book/customers', [DailyBookController::class, 'customerStore'])->name('daily-book.customers.store');
+        Route::get('/daily-book/customers/{party}/ledger', [DailyBookController::class, 'customerLedger'])->name('daily-book.customers.ledger');
+        Route::post('/daily-book/customers/{party}/collect', [DailyBookController::class, 'customerCollect'])->name('daily-book.customers.collect');
 
         // "Daily Book" quick entries — {type} is 'purchase' | 'sale' | 'expense'
         // | 'capital' (DailyBookEntry::TYPES). Deliberately separate from the

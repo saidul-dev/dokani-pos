@@ -12,15 +12,9 @@ class PartySeeder extends Seeder
      */
     public function run(): void
     {
-        Party::firstOrCreate(
-            ['phone' => '01700000001'],
-            [
-                'name' => 'Walk-in Customer',
-                'is_customer' => true,
-                'is_supplier' => false,
-                'status' => true,
-            ]
-        );
+        // Same record POS and Daily Book fall back to when no customer is
+        // picked — see Party::walkIn().
+        Party::walkIn();
 
         Party::firstOrCreate(
             ['phone' => '01700000002'],

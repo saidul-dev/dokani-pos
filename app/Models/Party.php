@@ -10,6 +10,13 @@ class Party extends Model
 {
     public const OPENING_BALANCE_TYPES = ['due', 'advance'];
 
+    /**
+     * The one shared "Walk-in Customer" — who a sale is recorded against when
+     * no customer is picked (POS checkout, Daily Book Sale Entry). Identified
+     * by this placeholder phone since phone is the unique key on parties.
+     */
+    public const WALKIN_PHONE = '0000000000';
+
     protected $fillable = [
         'is_customer',
         'is_supplier',
@@ -46,6 +53,19 @@ class Party extends Model
         static::created(function (Party $party) {
             $party->postOpeningBalanceToLedger();
         });
+    }
+
+    public static function walkIn(): self
+    {
+        return static::firstOrCreate(
+            ['phone' => self::WALKIN_PHONE],
+            ['name' => 'Walk-in Customer', 'is_customer' => true, 'opening_balance_type' => 'due', 'status' => true]
+        );
+    }
+
+    public function isWalkIn(): bool
+    {
+        return $this->phone === self::WALKIN_PHONE;
     }
 
     public function getRoleLabelAttribute(): string

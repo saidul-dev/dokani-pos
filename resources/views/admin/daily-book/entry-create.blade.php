@@ -14,6 +14,28 @@
         'capital' => __('e.g. Owner investment, loan from family…'),
     ];
     $notePlaceholder = $notePlaceholders[$type] ?? '';
+
+    // Purchase (supplier) and Sale (customer) share the party + paid fields —
+    // only the wording differs. A sale with no customer picked is a walk-in.
+    $p = $side === 'customer' ? [
+        'party' => __('Customer'),
+        'new' => __('New Customer'),
+        'none' => __('— Walk-in Customer —'),
+        'name' => __('Customer name'),
+        'help' => __('Leave as Walk-in unless they\'re buying on credit.'),
+        'paid' => __('Received now'),
+        'paidHint' => __('Type how much you received now — 0 if you received nothing.'),
+        'paidFull' => __('Received in full.'),
+    ] : [
+        'party' => __('Supplier'),
+        'new' => __('New Supplier'),
+        'none' => __('— No supplier —'),
+        'name' => __('Supplier name'),
+        'help' => __('The supplier / wholesaler you bought from.'),
+        'paid' => __('Paid now'),
+        'paidHint' => __('Type how much you paid now — 0 if you paid nothing.'),
+        'paidFull' => __('Paid in full.'),
+    ];
 @endphp
 <x-app-layout>
     <x-slot name="title">{{ __(':type Entry', ['type' => $typeLabel]) }}</x-slot>
@@ -29,11 +51,12 @@
     <div class="w-full" x-data="{
             photoName: null,
             photoUrl: null,
-            {{-- Purchase only: the owner types Paid themselves (or taps Full amount) —
-                 it never fills in on its own. Anything less than Amount is a due. --}}
+            {{-- Purchase/Sale only: the owner types Paid/Received themselves (or taps
+                 Full amount) — it never fills in on its own. Anything less than Amount
+                 is a due. --}}
             amount: @js(old('amount', '')),
             paid: @js(old('paid_amount', '')),
-            newSupplier: @js(filled(old('new_party_name')) || filled(old('new_party_phone'))),
+            newParty: @js(filled(old('new_party_name')) || filled(old('new_party_phone'))),
             get paidEntered() {
                 return this.paid !== '' && this.paid !== null;
             },
@@ -49,10 +72,10 @@
               class="w-full rounded-2xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-slate-200 space-y-6 pb-28 sm:pb-6">
             @csrf
 
-            {{-- Two columns from sm up, stacked on phones. Purchase: Date | Supplier,
-                 then Amount | Paid now. Other types: just Date | Amount. Every label
-                 row is the same height (h-7) so side-by-side inputs line up even
-                 when one label carries a button. --}}
+            {{-- Two columns from sm up, stacked on phones. Purchase/Sale: Date |
+                 Supplier/Customer, then Amount | Paid/Received now. Other types: just
+                 Date | Amount. Every label row is the same height (h-7) so
+                 side-by-side inputs line up even when one label carries a button. --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
                     <div class="flex h-7 items-center">
@@ -64,45 +87,47 @@
                     <x-input-error class="mt-2" :messages="$errors->get('entry_date')" />
                 </div>
 
-                @if ($type === 'purchase')
-                {{-- Credit purchase from a supplier (wholesaler — a Party with
-                     is_supplier). Supplier is optional for a cash purchase, required
-                     the moment any due is kept — enforced again server-side. --}}
+                @if ($side)
+                {{-- Credit purchase from a supplier / credit sale to a customer (a
+                     Party with is_supplier / is_customer). Optional when fully
+                     paid/received (a sale then goes to the Walk-in Customer),
+                     required the moment any due is kept — enforced again
+                     server-side. --}}
                 <div>
                     <div class="flex h-7 items-center justify-between gap-3">
                         <x-input-label for="party_id" class="text-sm font-semibold">
-                            {{ __('Supplier') }}
+                            {{ $p['party'] }}
                             <span class="font-normal text-slate-400" x-show="due <= 0">({{ __('optional') }})</span>
                             <span class="font-semibold text-rose-600" x-show="due > 0" x-cloak>({{ __('required for due') }})</span>
                         </x-input-label>
-                        <button type="button" x-on:click="newSupplier = ! newSupplier"
+                        <button type="button" x-on:click="newParty = ! newParty"
                                 class="shrink-0 rounded-lg px-2.5 py-1 text-xs font-semibold text-brand-800 ring-1 ring-slate-200 bg-white hover:bg-slate-50">
-                            <span x-show="! newSupplier">+ {{ __('New Supplier') }}</span>
-                            <span x-show="newSupplier" x-cloak>{{ __('Choose existing') }}</span>
+                            <span x-show="! newParty">+ {{ $p['new'] }}</span>
+                            <span x-show="newParty" x-cloak>{{ __('Choose existing') }}</span>
                         </button>
                     </div>
 
                     {{-- Disabled inputs aren't submitted, so only the active mode
                          (pick existing vs. quick add) reaches the server. --}}
-                    <div x-show="! newSupplier" class="mt-1.5">
-                        <select id="party_id" name="party_id" x-bind:disabled="newSupplier"
+                    <div x-show="! newParty" class="mt-1.5">
+                        <select id="party_id" name="party_id" x-bind:disabled="newParty"
                                 class="block w-full rounded-xl border-slate-300 !py-3.5 !text-base focus:border-accent-500 focus:ring-accent-500">
-                            <option value="">{{ __('— No supplier —') }}</option>
-                            @foreach ($suppliers as $supplier)
-                            <option value="{{ $supplier->id }}" @selected(old('party_id') == $supplier->id)>{{ $supplier->name }} · {{ $supplier->phone }}</option>
+                            <option value="">{{ $p['none'] }}</option>
+                            @foreach ($parties as $party)
+                            <option value="{{ $party->id }}" @selected(old('party_id') == $party->id)>{{ $party->name }} · {{ $party->phone }}</option>
                             @endforeach
                         </select>
                     </div>
 
-                    <div x-show="newSupplier" x-cloak class="mt-1.5 grid grid-cols-2 gap-3">
-                        <x-text-input name="new_party_name" type="text" x-bind:disabled="! newSupplier"
+                    <div x-show="newParty" x-cloak class="mt-1.5 grid grid-cols-2 gap-3">
+                        <x-text-input name="new_party_name" type="text" x-bind:disabled="! newParty"
                                       class="block w-full !py-3.5 !text-base rounded-xl"
-                                      :value="old('new_party_name')" placeholder="{{ __('Supplier name') }}" />
-                        <x-text-input name="new_party_phone" type="tel" inputmode="tel" x-bind:disabled="! newSupplier"
+                                      :value="old('new_party_name')" placeholder="{{ $p['name'] }}" />
+                        <x-text-input name="new_party_phone" type="tel" inputmode="tel" x-bind:disabled="! newParty"
                                       class="block w-full !py-3.5 !text-base rounded-xl"
                                       :value="old('new_party_phone')" placeholder="{{ __('Phone number') }}" />
                     </div>
-                    <p class="mt-1.5 text-xs text-slate-400">{{ __('The supplier / wholesaler you bought from.') }}</p>
+                    <p class="mt-1.5 text-xs text-slate-400">{{ $p['help'] }}</p>
                     <x-input-error class="mt-2" :messages="$errors->get('party_id')" />
                     <x-input-error class="mt-2" :messages="$errors->get('new_party_name')" />
                     <x-input-error class="mt-2" :messages="$errors->get('new_party_phone')" />
@@ -123,10 +148,10 @@
                     <x-input-error class="mt-2" :messages="$errors->get('amount')" />
                 </div>
 
-                @if ($type === 'purchase')
+                @if ($side)
                 <div>
                     <div class="flex h-7 items-center">
-                        <x-input-label for="paid_amount" :value="__('Paid now')" class="text-sm font-semibold" />
+                        <x-input-label for="paid_amount" :value="$p['paid']" class="text-sm font-semibold" />
                     </div>
                     <div class="relative mt-1.5">
                         <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
@@ -145,12 +170,8 @@
                     <p class="mt-1.5 text-sm text-rose-600" x-show="due > 0" x-cloak>
                         {{ __('Due') }}: <span class="font-bold" x-text="'৳' + due.toFixed(2)"></span>
                     </p>
-                    <p class="mt-1.5 text-xs text-slate-400" x-show="! paidEntered">
-                        {{ __('Type how much you paid now — 0 if you paid nothing.') }}
-                    </p>
-                    <p class="mt-1.5 text-xs text-slate-400" x-show="paidEntered && due <= 0" x-cloak>
-                        {{ __('Paid in full.') }}
-                    </p>
+                    <p class="mt-1.5 text-xs text-slate-400" x-show="! paidEntered">{{ $p['paidHint'] }}</p>
+                    <p class="mt-1.5 text-xs text-slate-400" x-show="paidEntered && due <= 0" x-cloak>{{ $p['paidFull'] }}</p>
                     <x-input-error class="mt-2" :messages="$errors->get('paid_amount')" />
                 </div>
                 @endif

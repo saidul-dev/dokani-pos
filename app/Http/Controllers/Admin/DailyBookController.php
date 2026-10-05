@@ -10,6 +10,7 @@ use App\Models\Site;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controllers\HasMiddleware;
 use Illuminate\Routing\Controllers\Middleware;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -125,14 +126,15 @@ class DailyBookController extends Controller implements HasMiddleware
     }
 
     /**
-     * Capital + Sale − cash actually paid out (purchases' paid_amount,
-     * expenses, supplier payments), across ALL TIME — deliberately not scoped
-     * to the Summary page's selected range, since "cash in hand" only makes
-     * sense as a running balance from the first entry ever logged. A
-     * purchase on credit only takes out what was paid at the time; the rest
-     * leaves the till later, as supplier payments. 'capital' entries are the
-     * owner putting money in (see DailyBookEntry) — the first one
-     * effectively is the starting balance.
+     * Cash actually in the till, across ALL TIME — deliberately not scoped to
+     * the Summary page's selected range, since "cash in hand" only makes
+     * sense as a running balance from the first entry ever logged. Counts
+     * only money that changed hands: a credit sale adds just what was
+     * received on the spot (the rest comes in later as customer
+     * collections), a credit purchase takes out just what was paid (the rest
+     * leaves later as supplier payments). 'capital' entries are the owner
+     * putting money in (see DailyBookEntry) — the first one effectively is
+     * the starting balance.
      */
     protected function cashInHand(?int $siteId): float
     {
@@ -141,7 +143,8 @@ class DailyBookController extends Controller implements HasMiddleware
             ->sum($column);
 
         return $allTime('capital')
-            + $allTime('sale')
+            + $allTime('sale', 'paid_amount')
+            + $allTime(DailyBookEntry::CUSTOMER_COLLECTION)
             - $allTime('purchase', 'paid_amount')
             - $allTime('expense')
             - $allTime(DailyBookEntry::SUPPLIER_PAYMENT);
@@ -177,8 +180,10 @@ class DailyBookController extends Controller implements HasMiddleware
 
     /**
      * One shared form + list per entry type ('purchase' | 'sale' |
-     * 'expense') — see DailyBookEntry. Quick log only: a plain amount +
-     * date + note, no product lines, no ledger posting, no stock effect.
+     * 'expense' | 'capital') — see DailyBookEntry. Quick log only: a plain
+     * amount + date + note, no product lines, no ledger posting, no stock
+     * effect. Purchase and sale also carry a party and what was paid /
+     * received on the spot (DailyBookEntry::SIDES).
      */
     public function entryIndex(string $type)
     {
@@ -192,6 +197,7 @@ class DailyBookController extends Controller implements HasMiddleware
 
         return view('admin.daily-book.entry-index', [
             'type' => $type,
+            'side' => DailyBookEntry::sideFor($type),
             'entries' => $entries,
         ]);
     }
@@ -200,12 +206,13 @@ class DailyBookController extends Controller implements HasMiddleware
     {
         $this->assertValidType($type);
 
+        $side = DailyBookEntry::sideFor($type);
+
         return view('admin.daily-book.entry-create', [
             'type' => $type,
+            'side' => $side,
             'sites' => Site::where('status', true)->orderBy('name')->get(),
-            'suppliers' => $type === 'purchase'
-                ? Party::where('is_supplier', true)->where('status', true)->orderBy('name')->get(['id', 'name', 'phone'])
-                : collect(),
+            'parties' => $side ? $this->partyOptions($side) : collect(),
         ]);
     }
 
@@ -213,7 +220,8 @@ class DailyBookController extends Controller implements HasMiddleware
     {
         $this->assertValidType($type);
 
-        $isPurchase = $type === 'purchase';
+        $side = DailyBookEntry::sideFor($type);
+        $isCustomer = $side === 'customer';
 
         $rules = [
             'entry_date' => ['required', 'date'],
@@ -227,40 +235,58 @@ class DailyBookController extends Controller implements HasMiddleware
             'photo' => ['nullable', 'image', 'max:8192'],
         ];
 
-        if ($isPurchase) {
+        if ($side) {
             $rules += [
-                // Typed by the owner (or "Full amount" on the form) — never
-                // assumed, so a forgotten field can't silently record a
-                // credit purchase as paid. Anything less than amount is a due.
+                // What was paid (purchase) / received (sale) on the spot —
+                // typed by the owner (or "Full amount" on the form), never
+                // assumed, so a forgotten field can't silently record a credit
+                // deal as settled. Anything less than amount is a due.
                 'paid_amount' => ['required', 'numeric', 'min:0', 'lte:amount'],
-                'party_id' => ['nullable', Rule::exists('parties', 'id')->where('is_supplier', true)],
-                // Quick add — just name + phone, the same two things a
-                // shop owner writes in their khata for a new Supplier.
+                'party_id' => ['nullable', Rule::exists('parties', 'id')->where(DailyBookEntry::SIDES[$side]['flag'], true)],
+                // Quick add — just name + phone, the same two things a shop
+                // owner writes in their khata for someone new.
                 'new_party_name' => ['nullable', 'required_with:new_party_phone', 'string', 'max:255'],
                 'new_party_phone' => ['nullable', 'required_with:new_party_name', 'string', 'max:30'],
             ];
         }
 
         $validated = $request->validate($rules, [
-            'paid_amount.required' => __('Enter how much you paid now — 0 if you paid nothing.'),
-            'paid_amount.lte' => __('Paid amount can\'t be more than the purchase amount.'),
+            'paid_amount.required' => $isCustomer
+                ? __('Enter how much you received now — 0 if you received nothing.')
+                : __('Enter how much you paid now — 0 if you paid nothing.'),
+            'paid_amount.lte' => $isCustomer
+                ? __('Received amount can\'t be more than the sale amount.')
+                : __('Paid amount can\'t be more than the purchase amount.'),
         ]);
 
-        $hasSupplier = ! empty($validated['party_id']) || ! empty($validated['new_party_name']);
+        $keepsDue = $side && (float) $validated['paid_amount'] < (float) $validated['amount'];
+        $dueNeedsPartyMessage = $isCustomer
+            ? __('To keep a due, choose or add the customer who owes it — not the Walk-in Customer.')
+            : __('To keep a due, choose or add the supplier you owe.');
 
-        if ($isPurchase && ! $hasSupplier && (float) $validated['paid_amount'] < (float) $validated['amount']) {
-            throw ValidationException::withMessages([
-                'party_id' => __('To keep a due, choose or add the supplier you owe.'),
-            ]);
+        if ($keepsDue && empty($validated['party_id']) && empty($validated['new_party_name'])) {
+            throw ValidationException::withMessages(['party_id' => $dueNeedsPartyMessage]);
         }
 
         $reusedParty = null;
 
-        $entry = DB::transaction(function () use ($validated, $type, $isPurchase, &$reusedParty) {
+        $entry = DB::transaction(function () use ($validated, $type, $side, $isCustomer, $keepsDue, $dueNeedsPartyMessage, &$reusedParty) {
             $partyId = null;
 
-            if ($isPurchase) {
-                [$partyId, $reusedParty] = $this->resolveSupplier($validated);
+            if ($side) {
+                [$partyId, $reusedParty] = $this->resolveParty($validated, $side);
+
+                // No customer picked on a sale → it was a walk-in sale.
+                if ($isCustomer && $partyId === null) {
+                    $partyId = Party::walkIn()->id;
+                }
+
+                // Nobody can owe a due as "Walk-in" — they'd never be found
+                // again to collect it. (Thrown inside the transaction, so a
+                // party created by the quick add above is rolled back too.)
+                if ($keepsDue && $partyId === Party::walkIn()->id) {
+                    throw ValidationException::withMessages(['party_id' => $dueNeedsPartyMessage]);
+                }
             }
 
             return DailyBookEntry::create([
@@ -269,7 +295,7 @@ class DailyBookController extends Controller implements HasMiddleware
                 'party_id' => $partyId,
                 'entry_date' => $validated['entry_date'],
                 'amount' => $validated['amount'],
-                'paid_amount' => $isPurchase ? $validated['paid_amount'] : null,
+                'paid_amount' => $side ? $validated['paid_amount'] : null,
                 'note' => $validated['note'] ?? null,
                 'created_by' => Auth::id(),
             ]);
@@ -289,60 +315,123 @@ class DailyBookController extends Controller implements HasMiddleware
         $message = __(':type entry saved.', ['type' => ucfirst($type)]);
 
         if ($reusedParty) {
-            $message .= ' '.__('That phone number already belonged to :name, so the purchase was recorded under them.', ['name' => $reusedParty->name]);
+            $message .= ' '.__('That phone number already belonged to :name, so the :type was recorded under them.', ['name' => $reusedParty->name, 'type' => __($type)]);
         }
 
         return redirect()->route('daily-book.entries.index', $type)->with('success', $message);
     }
 
     /**
-     * Picks the supplier for a purchase: a quick-added one (name + phone)
-     * wins over the dropdown. Phone is unique on parties, so a quick add
-     * with a number that's already on file reuses that party (marking them
-     * a supplier if they were only a customer) instead of failing — and
+     * The picker options for a side: active parties with that side's flag.
+     * The walk-in is left out — on a sale it's what "no customer" means, and
+     * it's never a real supplier.
+     */
+    protected function partyOptions(string $side): Collection
+    {
+        return Party::where(DailyBookEntry::SIDES[$side]['flag'], true)
+            ->where('status', true)
+            ->where('phone', '!=', Party::WALKIN_PHONE)
+            ->orderBy('name')
+            ->get(['id', 'name', 'phone']);
+    }
+
+    /**
+     * Picks the party for a purchase/sale: a quick-added one (name + phone)
+     * wins over the dropdown. Phone is unique on parties, so a quick add with
+     * a number that's already on file reuses that party (giving them this
+     * side's flag if they only had the other) instead of failing — and
      * returns them so the caller can tell the owner which name it went to.
      *
      * @return array{0: ?int, 1: ?Party} [party id, the existing party reused by phone (if any)]
      */
-    protected function resolveSupplier(array $validated): array
+    protected function resolveParty(array $validated, string $side): array
     {
         if (empty($validated['new_party_name'])) {
-            return [$validated['party_id'] ?? null, null];
+            // Cast: the request gives "1", and callers compare ids strictly
+            // (e.g. the walk-in check in entryStore).
+            return [isset($validated['party_id']) ? (int) $validated['party_id'] : null, null];
         }
 
+        $flag = DailyBookEntry::SIDES[$side]['flag'];
         $phone = trim($validated['new_party_phone']);
         $existing = Party::where('phone', $phone)->first();
 
         if ($existing) {
-            if (! $existing->is_supplier) {
-                $existing->update(['is_supplier' => true]);
+            if (! $existing->{$flag}) {
+                $existing->update([$flag => true]);
             }
 
             return [$existing->id, $existing];
         }
 
-        // No opening balance, so Party's created() hook posts nothing to
-        // the ledger — the supplier's dues stay Daily-Book-only.
+        // No opening balance, so Party's created() hook posts nothing to the
+        // ledger — the party's dues stay Daily-Book-only.
         $party = Party::create([
             'name' => trim($validated['new_party_name']),
             'phone' => $phone,
-            'is_supplier' => true,
+            $flag => true,
             'status' => true,
         ]);
 
         return [$party->id, null];
     }
 
-    /**
-     * Every supplier with their outstanding Daily Book due, highest first,
-     * with Quick Pay. Inactive suppliers still show while they're owed
-     * money, so a due can never disappear from view.
-     */
+    // ── Suppliers & Customers ───────────────────────────────────────────
+    // Same screens and rules on both sides (DailyBookEntry::SIDES), so each
+    // public action below is a thin wrapper naming its side.
+
     public function supplierIndex()
     {
-        $dues = DailyBookEntry::supplierDues();
+        return $this->partyIndex('supplier');
+    }
 
-        $suppliers = Party::where('is_supplier', true)
+    public function customerIndex()
+    {
+        return $this->partyIndex('customer');
+    }
+
+    public function supplierStore(Request $request)
+    {
+        return $this->partyStore($request, 'supplier');
+    }
+
+    public function customerStore(Request $request)
+    {
+        return $this->partyStore($request, 'customer');
+    }
+
+    public function supplierLedger(Party $party)
+    {
+        return $this->partyLedger($party, 'supplier');
+    }
+
+    public function customerLedger(Party $party)
+    {
+        return $this->partyLedger($party, 'customer');
+    }
+
+    public function supplierPay(Request $request, Party $party)
+    {
+        return $this->partySettle($request, $party, 'supplier');
+    }
+
+    public function customerCollect(Request $request, Party $party)
+    {
+        return $this->partySettle($request, $party, 'customer');
+    }
+
+    /**
+     * Everyone on one side with their outstanding Daily Book due, highest
+     * first, with Quick Pay / Quick Collect. Inactive parties still show
+     * while a due is open, so a due can never disappear from view. The
+     * walk-in is left out — it can never carry a due.
+     */
+    protected function partyIndex(string $side)
+    {
+        $dues = DailyBookEntry::dues($side);
+
+        $parties = Party::where(DailyBookEntry::SIDES[$side]['flag'], true)
+            ->where('phone', '!=', Party::WALKIN_PHONE)
             ->where(fn ($q) => $q->where('status', true)->orWhereIn('id', $dues->keys()))
             ->orderBy('name')
             ->get(['id', 'name', 'phone'])
@@ -350,113 +439,134 @@ class DailyBookController extends Controller implements HasMiddleware
             ->sortByDesc('daily_book_due')
             ->values();
 
-        return view('admin.daily-book.supplier-index', [
-            'suppliers' => $suppliers,
-            'totalDue' => $suppliers->sum('daily_book_due'),
+        return view('admin.daily-book.party-index', [
+            'side' => $side,
+            'parties' => $parties,
+            'totalDue' => $parties->sum('daily_book_due'),
         ]);
     }
 
     /**
-     * Add Supplier from the supplier list — same name + phone as the
-     * purchase form's quick add. Phone is unique on parties: a number
-     * that's already a customer just gets the supplier flag too (one
-     * person, two roles — the parties table's own convention); one that's
-     * already a supplier is refused, since they're already on the list.
+     * Add Supplier / Add Customer — same name + phone as the entry form's
+     * quick add. Phone is unique on parties: a number already on file under
+     * the other side just gets this side's flag too (one person, two roles —
+     * the parties table's own convention); one already on this side is
+     * refused, since they're already on the list.
      */
-    public function supplierStore(Request $request)
+    protected function partyStore(Request $request, string $side)
     {
+        $flag = DailyBookEntry::SIDES[$side]['flag'];
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:255'],
             'phone' => ['required', 'string', 'max:30'],
         ]);
 
         $phone = trim($validated['phone']);
+
+        if ($phone === Party::WALKIN_PHONE) {
+            throw ValidationException::withMessages(['phone' => __('That phone number is reserved for the Walk-in Customer.')]);
+        }
+
         $existing = Party::where('phone', $phone)->first();
 
-        if ($existing?->is_supplier) {
+        if ($existing?->{$flag}) {
             throw ValidationException::withMessages([
-                'phone' => __(':name is already on your supplier list with this phone number.', ['name' => $existing->name]),
+                'phone' => $side === 'customer'
+                    ? __(':name is already on your customer list with this phone number.', ['name' => $existing->name])
+                    : __(':name is already on your supplier list with this phone number.', ['name' => $existing->name]),
             ]);
         }
 
         if ($existing) {
-            $existing->update(['is_supplier' => true, 'status' => true]);
-            $message = __(':name was already saved with this phone number — added to your suppliers.', ['name' => $existing->name]);
+            $existing->update([$flag => true, 'status' => true]);
+            $message = $side === 'customer'
+                ? __(':name was already saved with this phone number — added to your customers.', ['name' => $existing->name])
+                : __(':name was already saved with this phone number — added to your suppliers.', ['name' => $existing->name]);
         } else {
             // No opening balance, so Party's created() hook posts nothing to
             // the ledger.
             $party = Party::create([
                 'name' => trim($validated['name']),
                 'phone' => $phone,
-                'is_supplier' => true,
+                $flag => true,
                 'status' => true,
             ]);
-            $message = __('Supplier :name added.', ['name' => $party->name]);
+            $message = $side === 'customer'
+                ? __('Customer :name added.', ['name' => $party->name])
+                : __('Supplier :name added.', ['name' => $party->name]);
         }
 
-        return redirect()->route('daily-book.suppliers.index')->with('success', $message);
+        return redirect()->route($this->sideRoute($side, 'index'))->with('success', $message);
     }
 
     /**
-     * One supplier's Daily Book khata, loaded into the modal on the supplier
-     * list (returns a bare partial, no layout). Oldest first with a running
-     * due: a purchase adds whatever wasn't paid on the spot, a payment takes
-     * it off — so the last balance equals the due shown on the list
-     * (DailyBookEntry::supplierDues()).
+     * One party's Daily Book khata, loaded into the modal on the list
+     * (returns a bare partial, no layout). Oldest first with a running due:
+     * a purchase/sale adds whatever wasn't settled on the spot, a payment /
+     * collection takes it off — so the last balance equals the due shown on
+     * the list (DailyBookEntry::dues()).
      */
-    public function supplierLedger(Party $party)
+    protected function partyLedger(Party $party, string $side)
     {
-        abort_unless($party->is_supplier, 404);
+        $this->assertOnSide($party, $side);
+
+        ['entry' => $entryType, 'settle' => $settleType] = DailyBookEntry::SIDES[$side];
 
         $entries = DailyBookEntry::with('attachments')
             ->where('party_id', $party->id)
-            ->whereIn('type', ['purchase', DailyBookEntry::SUPPLIER_PAYMENT])
+            ->whereIn('type', [$entryType, $settleType])
             ->orderBy('entry_date')
             ->orderBy('id')
             ->get();
 
         $balance = 0.0;
 
-        $rows = $entries->map(function (DailyBookEntry $entry) use (&$balance) {
-            $isPurchase = $entry->type === 'purchase';
-            $purchased = $isPurchase ? (float) $entry->amount : 0.0;
-            $paid = $isPurchase ? (float) $entry->paid_amount : (float) $entry->amount;
-            $balance += $purchased - $paid;
+        $rows = $entries->map(function (DailyBookEntry $entry) use ($entryType, &$balance) {
+            $isEntry = $entry->type === $entryType;
+            $billed = $isEntry ? (float) $entry->amount : 0.0;
+            $settled = $isEntry ? (float) $entry->paid_amount : (float) $entry->amount;
+            $balance += $billed - $settled;
 
             return (object) [
                 'entry' => $entry,
-                'is_purchase' => $isPurchase,
-                'purchased' => $purchased,
-                'paid' => $paid,
+                'is_entry' => $isEntry,
+                'billed' => $billed,
+                'settled' => $settled,
                 'balance' => round($balance, 2),
             ];
         });
 
-        return view('admin.daily-book.supplier-ledger', [
+        return view('admin.daily-book.party-ledger', [
+            'side' => $side,
             'party' => $party,
             'rows' => $rows,
-            'totalPurchased' => $rows->sum('purchased'),
-            'totalPaid' => $rows->sum('paid'),
+            'totalBilled' => $rows->sum('billed'),
+            'totalSettled' => $rows->sum('settled'),
             'due' => round($balance, 2),
         ]);
     }
 
-    public function supplierPay(Request $request, Party $party)
+    /** Quick Pay (supplier) / Quick Collect (customer) — can't exceed the open due. */
+    protected function partySettle(Request $request, Party $party, string $side)
     {
-        abort_unless($party->is_supplier, 404);
+        $this->assertOnSide($party, $side);
 
-        $due = DailyBookEntry::supplierDues()[$party->id] ?? 0.0;
+        $due = DailyBookEntry::dues($side)[$party->id] ?? 0.0;
+        $isCustomer = $side === 'customer';
 
         $validated = $request->validate([
             'amount' => ['required', 'numeric', 'min:0.01', 'max:'.$due],
             'entry_date' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:2000'],
         ], [
-            'amount.max' => __('You only owe :name :due.', ['name' => $party->name, 'due' => number_format($due, 2)]),
+            'amount.max' => $isCustomer
+                ? __(':name only owes you :due.', ['name' => $party->name, 'due' => number_format($due, 2)])
+                : __('You only owe :name :due.', ['name' => $party->name, 'due' => number_format($due, 2)]),
         ]);
 
         DailyBookEntry::create([
-            'type' => DailyBookEntry::SUPPLIER_PAYMENT,
+            'type' => DailyBookEntry::SIDES[$side]['settle'],
             'site_id' => Auth::user()->current_site_id,
             'party_id' => $party->id,
             'entry_date' => $validated['entry_date'],
@@ -465,8 +575,22 @@ class DailyBookController extends Controller implements HasMiddleware
             'created_by' => Auth::id(),
         ]);
 
-        return redirect()->route('daily-book.suppliers.index')
-            ->with('success', __('Paid :amount to :name.', ['amount' => number_format((float) $validated['amount'], 2), 'name' => $party->name]));
+        $amount = number_format((float) $validated['amount'], 2);
+
+        return redirect()->route($this->sideRoute($side, 'index'))->with('success', $isCustomer
+            ? __('Collected :amount from :name.', ['amount' => $amount, 'name' => $party->name])
+            : __('Paid :amount to :name.', ['amount' => $amount, 'name' => $party->name]));
+    }
+
+    /** 'daily-book.suppliers.index', 'daily-book.customers.ledger', ... */
+    protected function sideRoute(string $side, string $action): string
+    {
+        return 'daily-book.'.($side === 'customer' ? 'customers' : 'suppliers').'.'.$action;
+    }
+
+    protected function assertOnSide(Party $party, string $side): void
+    {
+        abort_unless($party->{DailyBookEntry::SIDES[$side]['flag']} && ! $party->isWalkIn(), 404);
     }
 
     protected function assertValidType(string $type): void

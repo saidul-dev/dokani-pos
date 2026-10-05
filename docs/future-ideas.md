@@ -206,9 +206,10 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   is the only cost basis, so it now drives Gross Profit directly, and the separate
   "Estimated Profit" card (which computed the same Sale × % figure) was folded into it.
   Plus, **independent of
-  the range toggle**, an all-time **Cash in Hand** figure (Total Capital + Total Sale −
-  cash actually paid out: purchases' `paid_amount`, expenses, and supplier payments —
-  since the very first entry ever logged; see "Suppliers" below). **Sourced
+  the range toggle**, an all-time **Cash in Hand** figure (Total Capital + cash actually
+  received: sales' `paid_amount` and customer collections − cash actually paid out:
+  purchases' `paid_amount`, expenses, and supplier payments — since the very first entry
+  ever logged; see "Suppliers" and "Customers" below). **Sourced
   entirely from `DailyBookEntry`** — not from the real `Purchase`/`Sale`/`Expense` tables.
   This was originally built the other way around (reading the real tables) and shipped
   with a known gap — logging an entry via Purchase/Sale/Expense Entry below didn't move
@@ -271,9 +272,27 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   is a job for the eventual Daily Book → full system upgrade path. `party_id` is
   restrict-on-delete, so a supplier with Daily Book history can't be silently deleted
   from Parties (the existing PartyController doesn't catch that FK error yet — same
-  pre-existing gap as parties with sales/purchases). Not built: customer-side credit
-  sales (বাকি খাতা), an opening due for a supplier owed money from before the shop
-  started using Daily Book.
+  pre-existing gap as parties with sales/purchases). Not built: an opening due for a
+  supplier/customer from before the shop started using Daily Book.
+
+  **Customers** (2026-10-05; `daily-book.customers.*` routes) — the exact mirror of
+  Suppliers for credit sales (বাকি খাতা): Sale Entry has Customer + "Received now" (typed,
+  with a "Full amount" button), a due requires a real customer, Customers page has Add
+  Customer, per-customer due, **Quick Collect**, and the ledger modal. Both sides run on
+  one implementation: `DailyBookEntry::SIDES` maps each side to its entry type
+  (purchase/sale), settle type (`supplier_payment`/`customer_collection`) and Party flag
+  (`is_supplier`/`is_customer`); `DailyBookEntry::dues($side)` and the controller's
+  `partyIndex/partyStore/partyLedger/partySettle` take the side, with thin
+  `supplier*`/`customer*` wrappers for the routes; views are `party-index` /
+  `party-ledger` with side-specific wording. A sale with no customer picked is recorded
+  against the **Walk-in Customer**, which can never carry a due (blocked client- and
+  server-side, including a forged `party_id`), so it's hidden from the Customers list,
+  the customer picker, and the ledger. Walk-in unification: the app had two — PartySeeder
+  created one under 01700000001 while POS created its own under 0000000000. There is now
+  one, `Party::walkIn()` / `Party::WALKIN_PHONE` (0000000000), used by POS, Daily Book and
+  the seeder; migration `2026_10_05_000001` re-phones the seeded one when the POS one
+  doesn't exist yet (and backfills `paid_amount = amount` on pre-existing sales, so they
+  stay fully received).
 
   **Settings** (`daily-book.settings.*` routes, gated by the stricter
   **`daily-book.edit`** permission rather than `.view` — only Admin/Super Admin have it

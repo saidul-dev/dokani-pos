@@ -30,7 +30,7 @@ use Illuminate\Validation\ValidationException;
  */
 class PosController extends Controller implements HasMiddleware
 {
-    public const WALKIN_PHONE = '0000000000';
+    public const WALKIN_PHONE = Party::WALKIN_PHONE;
 
     public static function middleware(): array
     {
@@ -169,10 +169,7 @@ class PosController extends Controller implements HasMiddleware
 
         $party = $validated['party_id'] ?? null
             ? Party::findOrFail($validated['party_id'])
-            : Party::firstOrCreate(
-                ['phone' => self::WALKIN_PHONE],
-                ['name' => 'Walk-in Customer', 'is_customer' => true, 'opening_balance_type' => 'due', 'status' => true]
-            );
+            : Party::walkIn();
 
         $account = LedgerAccount::where('group', 'cash_bank')->findOrFail($validated['ledger_account_id']);
 
