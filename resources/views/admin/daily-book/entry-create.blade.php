@@ -44,53 +44,27 @@
               class="w-full rounded-2xl bg-white p-4 sm:p-6 shadow-sm ring-1 ring-slate-200 space-y-6 pb-28 sm:pb-6">
             @csrf
 
+            {{-- Two columns from sm up, stacked on phones. Purchase: Date | Supplier,
+                 then Amount | Paid now. Other types: just Date | Amount. Every label
+                 row is the same height (h-7) so side-by-side inputs line up even
+                 when one label carries a button. --}}
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-5">
                 <div>
-                    <x-input-label for="entry_date" :value="__('Date')" class="text-sm font-semibold" />
+                    <div class="flex h-7 items-center">
+                        <x-input-label for="entry_date" :value="__('Date')" class="text-sm font-semibold" />
+                    </div>
                     <x-text-input id="entry_date" name="entry_date" type="date"
                                   class="mt-1.5 block w-full !py-3.5 !text-base rounded-xl"
                                   :value="old('entry_date', today()->toDateString())" required />
                     <x-input-error class="mt-2" :messages="$errors->get('entry_date')" />
                 </div>
 
+                @if ($type === 'purchase')
+                {{-- Credit purchase from a supplier (wholesaler — a Party with
+                     is_supplier). Supplier is optional for a cash purchase, required
+                     the moment any due is kept — enforced again server-side. --}}
                 <div>
-                    <x-input-label for="amount" :value="__('Amount')" class="text-sm font-semibold" />
-                    <div class="relative mt-1.5">
-                        <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
-                        <x-text-input id="amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0.01"
-                                      class="block w-full !py-3.5 !pl-9 !text-base rounded-xl"
-                                      x-model="amount" x-on:input="if (! paidTouched) paid = amount"
-                                      placeholder="0.00" required autofocus />
-                    </div>
-                    <x-input-error class="mt-2" :messages="$errors->get('amount')" />
-                </div>
-            </div>
-
-            @if ($type === 'purchase')
-            {{-- Credit purchase from a supplier (wholesaler — a Party with
-                 is_supplier). Supplier is optional for a cash purchase, required
-                 the moment any due is kept — enforced again server-side. --}}
-            <div class="rounded-xl bg-slate-50 p-4 ring-1 ring-slate-200 space-y-5">
-                <div>
-                    <x-input-label for="paid_amount" :value="__('Paid now')" class="text-sm font-semibold" />
-                    <div class="relative mt-1.5">
-                        <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
-                        <x-text-input id="paid_amount" name="paid_amount" type="number" inputmode="decimal" step="0.01" min="0"
-                                      class="block w-full !py-3.5 !pl-9 !text-base rounded-xl"
-                                      x-model="paid" x-on:input="paidTouched = true"
-                                      placeholder="0.00" required />
-                    </div>
-                    <p class="mt-1.5 text-sm text-rose-600" x-show="due > 0" x-cloak>
-                        {{ __('Due') }}: <span class="font-bold" x-text="'৳' + due.toFixed(2)"></span>
-                    </p>
-                    <p class="mt-1.5 text-xs text-slate-400" x-show="due <= 0">
-                        {{ __('Paid in full. Lower this if you\'re keeping some due with the supplier.') }}
-                    </p>
-                    <x-input-error class="mt-2" :messages="$errors->get('paid_amount')" />
-                </div>
-
-                <div>
-                    <div class="flex items-center justify-between gap-3">
+                    <div class="flex h-7 items-center justify-between gap-3">
                         <x-input-label for="party_id" class="text-sm font-semibold">
                             {{ __('Supplier') }}
                             <span class="font-normal text-slate-400" x-show="due <= 0">({{ __('optional') }})</span>
@@ -102,11 +76,10 @@
                             <span x-show="newSupplier" x-cloak>{{ __('Choose existing') }}</span>
                         </button>
                     </div>
-                    <p class="mt-0.5 text-xs text-slate-400">{{ __('The supplier / wholesaler you bought from.') }}</p>
 
                     {{-- Disabled inputs aren't submitted, so only the active mode
                          (pick existing vs. quick add) reaches the server. --}}
-                    <div x-show="! newSupplier" class="mt-2">
+                    <div x-show="! newSupplier" class="mt-1.5">
                         <select id="party_id" name="party_id" x-bind:disabled="newSupplier"
                                 class="block w-full rounded-xl border-slate-300 !py-3.5 !text-base focus:border-accent-500 focus:ring-accent-500">
                             <option value="">{{ __('— No supplier —') }}</option>
@@ -116,7 +89,7 @@
                         </select>
                     </div>
 
-                    <div x-show="newSupplier" x-cloak class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div x-show="newSupplier" x-cloak class="mt-1.5 grid grid-cols-2 gap-3">
                         <x-text-input name="new_party_name" type="text" x-bind:disabled="! newSupplier"
                                       class="block w-full !py-3.5 !text-base rounded-xl"
                                       :value="old('new_party_name')" placeholder="{{ __('Supplier name') }}" />
@@ -124,12 +97,56 @@
                                       class="block w-full !py-3.5 !text-base rounded-xl"
                                       :value="old('new_party_phone')" placeholder="{{ __('Phone number') }}" />
                     </div>
+                    <p class="mt-1.5 text-xs text-slate-400">{{ __('The supplier / wholesaler you bought from.') }}</p>
                     <x-input-error class="mt-2" :messages="$errors->get('party_id')" />
                     <x-input-error class="mt-2" :messages="$errors->get('new_party_name')" />
                     <x-input-error class="mt-2" :messages="$errors->get('new_party_phone')" />
                 </div>
+                @endif
+
+                <div>
+                    <div class="flex h-7 items-center">
+                        <x-input-label for="amount" :value="__('Amount')" class="text-sm font-semibold" />
+                    </div>
+                    <div class="relative mt-1.5">
+                        <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
+                        <x-text-input id="amount" name="amount" type="number" inputmode="decimal" step="0.01" min="0.01"
+                                      class="block w-full !py-3.5 !pl-9 !text-base rounded-xl"
+                                      x-model="amount" x-on:input="if (! paidTouched) paid = amount"
+                                      placeholder="0.00" required autofocus />
+                    </div>
+                    <x-input-error class="mt-2" :messages="$errors->get('amount')" />
+                </div>
+
+                @if ($type === 'purchase')
+                <div>
+                    <div class="flex h-7 items-center">
+                        <x-input-label for="paid_amount" :value="__('Paid now')" class="text-sm font-semibold" />
+                    </div>
+                    <div class="relative mt-1.5">
+                        <span class="pointer-events-none absolute inset-y-0 left-4 flex items-center text-base font-semibold text-slate-400">{{ __('৳') }}</span>
+                        <x-text-input id="paid_amount" name="paid_amount" type="number" inputmode="decimal" step="0.01" min="0"
+                                      class="block w-full !py-3.5 !pl-9 !pr-32 !text-base rounded-xl"
+                                      x-model="paid" x-on:input="paidTouched = true"
+                                      placeholder="0.00" required />
+                        {{-- Copies Amount into Paid and hands Paid back to following
+                             Amount, so later Amount edits keep it in sync again. --}}
+                        <button type="button" x-on:click="paid = amount; paidTouched = false"
+                                x-bind:disabled="! amount"
+                                class="absolute inset-y-1.5 right-1.5 rounded-lg bg-brand-800 px-3 text-xs font-semibold text-white hover:bg-brand-700 disabled:cursor-not-allowed disabled:bg-slate-300">
+                            {{ __('Full amount') }}
+                        </button>
+                    </div>
+                    <p class="mt-1.5 text-sm text-rose-600" x-show="due > 0" x-cloak>
+                        {{ __('Due') }}: <span class="font-bold" x-text="'৳' + due.toFixed(2)"></span>
+                    </p>
+                    <p class="mt-1.5 text-xs text-slate-400" x-show="due <= 0">
+                        {{ __('Paid in full. Lower this if you\'re keeping some due with the supplier.') }}
+                    </p>
+                    <x-input-error class="mt-2" :messages="$errors->get('paid_amount')" />
+                </div>
+                @endif
             </div>
-            @endif
 
             {{-- Site picker hidden for Daily Book — keep the field/backend logic
                  intact (see DailyBookController::entryStore, which falls back to

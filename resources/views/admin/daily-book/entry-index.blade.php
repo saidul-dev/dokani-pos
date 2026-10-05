@@ -31,7 +31,9 @@
             <thead>
                 <tr class="border-b border-slate-100 bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
                     <th class="px-5 py-3 font-semibold">{{ __('Date') }}</th>
-                    <th class="px-5 py-3 font-semibold">{{ __('Site') }}</th>
+                    {{-- Site hidden for Daily Book, not removed — same as the hidden
+                         Site picker on the entry form. --}}
+                    <th class="hidden px-5 py-3 font-semibold">{{ __('Site') }}</th>
                     @if ($type === 'purchase')
                     <th class="px-5 py-3 font-semibold">{{ __('Supplier') }}</th>
                     @endif
@@ -48,7 +50,7 @@
                 @forelse ($entries as $entry)
                 <tr class="hover:bg-slate-50">
                     <td class="px-5 py-3 text-slate-600">{{ $entry->entry_date->format('d M, Y') }}</td>
-                    <td class="px-5 py-3 text-slate-600">{{ $entry->site->name ?? '—' }}</td>
+                    <td class="hidden px-5 py-3 text-slate-600">{{ $entry->site->name ?? '—' }}</td>
                     @if ($type === 'purchase')
                     <td class="px-5 py-3 text-slate-600">{{ $entry->party->name ?? '—' }}</td>
                     @endif
