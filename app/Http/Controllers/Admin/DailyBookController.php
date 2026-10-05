@@ -395,6 +395,50 @@ class DailyBookController extends Controller implements HasMiddleware
         return redirect()->route('daily-book.suppliers.index')->with('success', $message);
     }
 
+    /**
+     * One supplier's Daily Book khata, loaded into the modal on the supplier
+     * list (returns a bare partial, no layout). Oldest first with a running
+     * due: a purchase adds whatever wasn't paid on the spot, a payment takes
+     * it off — so the last balance equals the due shown on the list
+     * (DailyBookEntry::supplierDues()).
+     */
+    public function supplierLedger(Party $party)
+    {
+        abort_unless($party->is_supplier, 404);
+
+        $entries = DailyBookEntry::with('attachments')
+            ->where('party_id', $party->id)
+            ->whereIn('type', ['purchase', DailyBookEntry::SUPPLIER_PAYMENT])
+            ->orderBy('entry_date')
+            ->orderBy('id')
+            ->get();
+
+        $balance = 0.0;
+
+        $rows = $entries->map(function (DailyBookEntry $entry) use (&$balance) {
+            $isPurchase = $entry->type === 'purchase';
+            $purchased = $isPurchase ? (float) $entry->amount : 0.0;
+            $paid = $isPurchase ? (float) $entry->paid_amount : (float) $entry->amount;
+            $balance += $purchased - $paid;
+
+            return (object) [
+                'entry' => $entry,
+                'is_purchase' => $isPurchase,
+                'purchased' => $purchased,
+                'paid' => $paid,
+                'balance' => round($balance, 2),
+            ];
+        });
+
+        return view('admin.daily-book.supplier-ledger', [
+            'party' => $party,
+            'rows' => $rows,
+            'totalPurchased' => $rows->sum('purchased'),
+            'totalPaid' => $rows->sum('paid'),
+            'due' => round($balance, 2),
+        ]);
+    }
+
     public function supplierPay(Request $request, Party $party)
     {
         abort_unless($party->is_supplier, 404);

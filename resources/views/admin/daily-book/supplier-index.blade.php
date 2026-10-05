@@ -68,14 +68,25 @@
         </div>
         @endif
 
+        {{-- ledgerUrl is set by the row clicked; the modal below fetches it on open. --}}
+        <div x-data="{ ledgerUrl: null }">
         <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 divide-y divide-slate-100">
             @forelse ($suppliers as $supplier)
             {{-- Reopen the pay form that failed validation, so the owner sees what to fix. --}}
             <div x-data="{ paying: @js((int) old('pay_party_id') === $supplier->id) }" class="p-4 sm:px-5">
-                <div class="flex items-center justify-between gap-3">
+                {{-- Clicking the row opens this supplier's ledger; Quick Pay and the
+                     phone link stop the click so they keep doing their own job. --}}
+                <div role="button" tabindex="0"
+                     x-on:click="ledgerUrl = @js(route('daily-book.suppliers.ledger', $supplier)); $dispatch('open-modal', 'supplier-ledger')"
+                     x-on:keydown.enter="$el.click()"
+                     class="-m-2 flex cursor-pointer items-center justify-between gap-3 rounded-xl p-2 hover:bg-slate-50">
                     <div class="min-w-0">
                         <p class="truncate font-semibold text-slate-800">{{ $supplier->name }}</p>
-                        <a href="tel:{{ $supplier->phone }}" class="text-sm text-slate-500 hover:text-brand-800">{{ $supplier->phone }}</a>
+                        <p class="text-sm text-slate-500">
+                            <a href="tel:{{ $supplier->phone }}" x-on:click.stop class="hover:text-brand-800">{{ $supplier->phone }}</a>
+                            <span class="text-slate-300">·</span>
+                            <span class="text-xs font-semibold text-brand-700">{{ __('View ledger') }} ›</span>
+                        </p>
                     </div>
                     <div class="flex shrink-0 items-center gap-3">
                         <div class="text-right">
@@ -85,7 +96,7 @@
                             </p>
                         </div>
                         @if ($supplier->daily_book_due > 0)
-                        <button type="button" x-on:click="paying = ! paying"
+                        <button type="button" x-on:click.stop="paying = ! paying"
                                 class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                                 x-bind:class="paying && 'bg-slate-500 hover:bg-slate-600'">
                             <span x-show="! paying">{{ __('Quick Pay') }}</span>
@@ -131,6 +142,26 @@
                 {{ __('No suppliers yet. Add one with "Add Supplier" above, or from a Purchase Entry.') }}
             </div>
             @endforelse
+        </div>
+
+        {{-- Supplier ledger. x-modal remounts its slot on every open, so this
+             fetch runs fresh each time for whichever row set ledgerUrl. --}}
+        <x-modal name="supplier-ledger" maxWidth="2xl">
+            <div class="relative" x-data="{ html: '', loading: true, failed: false }"
+                 x-init="fetch(ledgerUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+                            .then(r => r.ok ? r.text() : Promise.reject(r))
+                            .then(t => { html = t; loading = false })
+                            .catch(() => { failed = true; loading = false })">
+                <button type="button" x-on:click="$dispatch('close-modal', 'supplier-ledger')"
+                        class="absolute right-3 top-3 z-10 grid h-9 w-9 place-items-center rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                        aria-label="{{ __('Close') }}">
+                    <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12"/></svg>
+                </button>
+                <p x-show="loading" class="px-6 py-12 text-center text-sm text-slate-400">{{ __('Loading…') }}</p>
+                <p x-show="failed" x-cloak class="px-6 py-12 text-center text-sm text-rose-600">{{ __('Couldn\'t load the ledger. Please try again.') }}</p>
+                <div x-html="html"></div>
+            </div>
+        </x-modal>
         </div>
 
         <p class="text-xs text-slate-400 px-1">

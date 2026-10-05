@@ -139,6 +139,7 @@ Route::prefix('admin')->group(function () {
         // would otherwise hit daily-book.entries.store with type=suppliers).
         Route::get('/daily-book/suppliers', [DailyBookController::class, 'supplierIndex'])->name('daily-book.suppliers.index');
         Route::post('/daily-book/suppliers', [DailyBookController::class, 'supplierStore'])->name('daily-book.suppliers.store');
+        Route::get('/daily-book/suppliers/{party}/ledger', [DailyBookController::class, 'supplierLedger'])->name('daily-book.suppliers.ledger');
         Route::post('/daily-book/suppliers/{party}/pay', [DailyBookController::class, 'supplierPay'])->name('daily-book.suppliers.pay');
 
         // "Daily Book" quick entries — {type} is 'purchase' | 'sale' | 'expense'

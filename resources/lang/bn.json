@@ -1532,5 +1532,16 @@
     "Pay": "পরিশোধ করুন",
     "Save": "সংরক্ষণ করুন",
     "Suppliers / wholesalers you buy from, and how much you owe each.": "যেসব সরবরাহকারী / পাইকারের কাছ থেকে কেনেন, এবং কার কাছে কত বাকি।",
-    "Full amount": "পুরো টাকা"
+    "Full amount": "পুরো টাকা",
+    "Supplier Ledger": "সরবরাহকারীর খাতা",
+    "Total Purchase": "মোট ক্রয়",
+    "Total Paid": "মোট পরিশোধ",
+    "Details": "বিবরণ",
+    "Receipt photo": "রসিদের ছবি",
+    "View ledger": "খাতা দেখুন",
+    "Loading…": "লোড হচ্ছে…",
+    "Close": "বন্ধ করুন",
+    "No transactions with this supplier yet.": "এই সরবরাহকারীর সাথে এখনো কোনো লেনদেন নেই।",
+    "Oldest first. Balance is what you still owe after each line.": "পুরনো থেকে নতুন। প্রতিটি লাইনের পর যত বাকি থাকে, সেটাই ব্যালেন্স।",
+    "Couldn't load the ledger. Please try again.": "খাতা লোড করা যায়নি। আবার চেষ্টা করুন।"
 }
