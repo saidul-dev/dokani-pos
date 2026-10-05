@@ -733,23 +733,26 @@
 
                     <!-- Language selector -->
                     <div class="relative" x-data="{ open: false }">
+                        {{-- Shown on phones too, compact there (globe + short code), so the
+                             language can be switched without the desktop topbar. --}}
                         <button @click="open = !open"
-                            class="hidden sm:flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium text-brand-800 ring-1 ring-slate-200 hover:bg-slate-50">
+                            class="flex items-center gap-1.5 sm:gap-2 rounded-lg px-2.5 sm:px-3 py-2 text-sm font-medium text-brand-800 ring-1 ring-slate-200 hover:bg-slate-50">
                             <svg class="h-4 w-4 shrink-0 text-accent-600" fill="none" viewBox="0 0 24 24"
                                 stroke-width="1.8" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round"
                                     d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c-2.485 0-4.5-4.03-4.5-9s2.015-9 4.5-9 4.5 4.03 4.5 9-2.015 9-4.5 9Z" />
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.6 9h16.8M3.6 15h16.8" />
                             </svg>
-                            <span>{{ config('app.available_locales')[app()->getLocale()] }}</span>
-                            <svg class="h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2"
+                            <span class="sm:hidden">{{ app()->getLocale() === 'bn' ? 'বাং' : strtoupper(app()->getLocale()) }}</span>
+                            <span class="hidden sm:inline">{{ config('app.available_locales')[app()->getLocale()] }}</span>
+                            <svg class="hidden sm:block h-3.5 w-3.5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="2"
                                 stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="m19.5 8.25-7.5 7.5-7.5-7.5" />
                             </svg>
                         </button>
 
                         <div x-show="open" @click.outside="open = false" x-transition
-                            class="absolute right-0 mt-2 w-40 rounded-xl bg-white py-1.5 shadow-lg ring-1 ring-slate-200"
+                            class="absolute right-0 z-50 mt-2 w-40 rounded-xl bg-white py-1.5 shadow-lg ring-1 ring-slate-200"
                             style="display: none;">
                             @foreach (config('app.available_locales') as $localeCode => $localeName)
                             <form method="POST" action="{{ route('language.switch', $localeCode) }}">
@@ -990,11 +993,56 @@
             </div>
             @endif
 
+            @php
+                // Android-style bottom tab bar for Daily-Book-only shop owners on
+                // phones/tablets — skipped on pages that already pin their own
+                // Save bar to the bottom (entry form, Settings).
+                $showBottomNav = Auth::user()->hasRole('Daily Book Admin')
+                    && ! request()->routeIs('daily-book.entries.create', 'daily-book.settings.edit');
+            @endphp
+
             <!-- Page Content -->
-            <main class="flex-1 min-w-0 px-4 sm:px-6 py-6">
+            <main class="flex-1 min-w-0 px-4 sm:px-6 py-6 {{ $showBottomNav ? 'pb-28 lg:pb-6' : '' }}">
                 {{ $slot }}
             </main>
         </div>
+
+        @if ($showBottomNav)
+        @php
+            $tabs = [
+                ['route' => route('daily-book.summary'), 'active' => request()->routeIs('daily-book.summary'), 'label' => __('Summary'),
+                 'icon' => 'M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 0 1 3 19.875v-6.75ZM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V8.625ZM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 0 1-1.125-1.125V4.125Z'],
+                ['route' => route('daily-book.entries.index', 'purchase'), 'active' => request()->route('type') === 'purchase', 'label' => __('Purchase'),
+                 'icon' => 'M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.887-4.598 2.24-6.62.03-.176-.114-.33-.292-.33H5.706M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z'],
+                ['route' => route('daily-book.entries.index', 'sale'), 'active' => request()->route('type') === 'sale', 'label' => __('Sale'),
+                 'icon' => 'M2.25 18 9 11.25l4.306 4.306a11.95 11.95 0 0 1 5.814-5.518l2.74-1.22m0 0-5.94-2.281m5.94 2.28-2.28 5.941'],
+                ['route' => route('daily-book.customers.index'), 'active' => request()->routeIs('daily-book.customers.*'), 'label' => __('Customers'),
+                 'icon' => 'M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z'],
+            ];
+        @endphp
+        <nav class="lg:hidden fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur"
+             style="padding-bottom: env(safe-area-inset-bottom);">
+            <div class="grid grid-cols-5">
+                @foreach ($tabs as $tab)
+                <a href="{{ $tab['route'] }}"
+                   class="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold {{ $tab['active'] ? 'text-brand-800' : 'text-slate-400' }}">
+                    <span class="grid h-7 w-12 place-items-center rounded-full {{ $tab['active'] ? 'bg-brand-100' : '' }}">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $tab['icon'] }}"/></svg>
+                    </span>
+                    <span class="truncate max-w-full px-1">{{ $tab['label'] }}</span>
+                </a>
+                @endforeach
+                {{-- Everything else (Expense, Capital, Suppliers, Settings) stays in the sidebar. --}}
+                <button type="button" @click="sidebarOpen = true"
+                        class="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold text-slate-400">
+                    <span class="grid h-7 w-12 place-items-center rounded-full">
+                        <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
+                    </span>
+                    <span>{{ __('More') }}</span>
+                </button>
+            </div>
+        </nav>
+        @endif
     </div>
 </body>
 

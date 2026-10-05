@@ -80,18 +80,18 @@
         @endphp
 
         <!-- Stat cards — full-width stack on phone, grid from sm up -->
-        <div class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
+        <div class="grid grid-cols-2 xl:grid-cols-4 gap-3 sm:gap-4">
             @foreach ($stats as $stat)
-            <div class="relative overflow-hidden rounded-2xl bg-white p-4 sm:p-5 shadow-sm ring-1 ring-slate-200">
+            <div class="relative overflow-hidden rounded-2xl bg-white p-3.5 sm:p-5 shadow-sm ring-1 ring-slate-200">
                 <div class="absolute right-0 top-0 h-20 w-20 translate-x-6 -translate-y-6 rounded-full bg-gradient-to-br from-brand-100 to-accent-300/40"></div>
                 <div class="relative flex items-center justify-between gap-3">
                     <div class="min-w-0">
                         <p class="text-sm font-medium text-slate-500">{{ $stat['label'] }}</p>
                         @if ($stat['value'] === null)
                         {{-- Gross Profit with no margin % configured yet — see Settings --}}
-                        <p class="mt-1.5 text-xl sm:text-2xl font-bold text-slate-300">—</p>
+                        <p class="mt-1 sm:mt-1.5 text-lg sm:text-2xl font-bold text-slate-300">—</p>
                         @else
-                        <p class="mt-1.5 text-xl sm:text-2xl font-bold text-brand-900 break-words">{{ number_format($stat['value'], 2) }}</p>
+                        <p class="mt-1 sm:mt-1.5 text-lg sm:text-2xl font-bold text-brand-900 break-words">{{ number_format($stat['value'], 2) }}</p>
                         @endif
                         @if ($stat['icon'] === 'gross')
                         <p class="mt-0.5 text-xs text-slate-400">
@@ -103,7 +103,7 @@
                         </p>
                         @endif
                     </div>
-                    <span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-900 text-accent-400">
+                    <span class="hidden sm:grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-gradient-to-br from-brand-700 to-brand-900 text-accent-400">
                         @if ($stat['icon'] === 'purchase')
                             <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 3h1.386c.51 0 .955.343 1.087.835l.383 1.437M7.5 14.25a3 3 0 0 0-3 3h15.75m-12.75-3h11.218c1.121-2.3 1.887-4.598 2.24-6.62.03-.176-.114-.33-.292-.33H5.706M7.5 14.25 5.106 5.272M6 20.25a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Zm12.75 0a.75.75 0 1 1-1.5 0 .75.75 0 0 1 1.5 0Z"/></svg>
                         @elseif ($stat['icon'] === 'sale')

@@ -41,7 +41,7 @@
     <x-slot name="title">{{ __(':type Entry', ['type' => $typeLabel]) }}</x-slot>
     <x-slot name="header">
         <div>
-            <h2 class="text-2xl font-bold text-brand-900">{{ __('New :type Entry', ['type' => $typeLabel]) }}</h2>
+            <h2 class="text-xl sm:text-2xl font-bold text-brand-900">{{ __('New :type Entry', ['type' => $typeLabel]) }}</h2>
             <p class="text-sm text-slate-500 mt-0.5">
                 {{ __('A quick daily log — just the amount, no product lines. This does not affect Accounts or Stock.') }}
             </p>

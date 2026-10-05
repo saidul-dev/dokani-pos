@@ -53,7 +53,46 @@
     @if ($rows->isEmpty())
     <p class="mt-6 rounded-xl bg-slate-50 px-4 py-8 text-center text-sm text-slate-400">{{ $t['empty'] }}</p>
     @else
-    <div class="mt-4 overflow-x-auto rounded-xl ring-1 ring-slate-200">
+    {{-- Phones: one card per line (the 5-column table doesn't fit the modal at 390px).
+         From sm up: the table below. --}}
+    <ul class="sm:hidden mt-4 divide-y divide-slate-100 rounded-xl ring-1 ring-slate-200">
+        @foreach ($rows as $row)
+        <li class="px-3 py-3">
+            <div class="flex items-start justify-between gap-3">
+                <div class="min-w-0">
+                    <span class="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $row->is_entry ? 'bg-brand-50 text-brand-800' : ($row->is_waiver ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700') }}">
+                        {{ $row->is_entry ? $t['entryBadge'] : ($row->is_waiver ? __('Waived') : $t['settleBadge']) }}
+                    </span>
+                    <span class="ml-1 text-xs text-slate-500">{{ $row->entry->entry_date->translatedFormat('d M, Y') }}</span>
+                    @if ($row->entry->note)
+                    <p class="mt-1 text-xs text-slate-500">{{ $row->entry->note }}</p>
+                    @endif
+                    @if ($row->entry->attachments->isNotEmpty())
+                    <a href="{{ $row->entry->attachments->first()->url }}" target="_blank" rel="noopener"
+                       class="mt-1 inline-block text-xs font-semibold text-brand-700">{{ __('Receipt photo') }}</a>
+                    @endif
+                </div>
+                <div class="shrink-0 text-right text-sm">
+                    @if ($row->is_entry)
+                    <p class="font-semibold text-slate-800">{{ number_format($row->billed, 2) }}</p>
+                    @if ($row->settled > 0)
+                    <p class="text-xs text-emerald-600">{{ $t['settledCol'] }} {{ number_format($row->settled, 2) }}</p>
+                    @endif
+                    @elseif ($row->is_waiver)
+                    <p class="font-semibold text-amber-700">− {{ number_format($row->waived, 2) }}</p>
+                    @else
+                    <p class="font-semibold text-emerald-600">− {{ number_format($row->settled, 2) }}</p>
+                    @endif
+                </div>
+            </div>
+            <p class="mt-1.5 text-right text-xs text-slate-400">
+                {{ __('Balance') }}: <span class="font-semibold {{ $row->balance > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ number_format($row->balance, 2) }}</span>
+            </p>
+        </li>
+        @endforeach
+    </ul>
+
+    <div class="hidden sm:block mt-4 overflow-x-auto rounded-xl ring-1 ring-slate-200">
         <table class="w-full min-w-[520px] text-sm">
             <thead>
                 <tr class="bg-slate-50 text-left text-[11px] uppercase tracking-wide text-slate-500">

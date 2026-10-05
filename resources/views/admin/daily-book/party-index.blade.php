@@ -124,7 +124,7 @@
             <div class="relative min-w-0 flex-1">
                 <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
                 <input type="search" x-model="q" inputmode="search" autocomplete="off"
-                       placeholder="{{ __('Search by name or mobile number') }}"
+                       placeholder="{{ __('Search name or mobile') }}"
                        class="block w-full rounded-xl border-slate-300 py-3 pl-12 pr-4 text-base shadow-sm focus:border-accent-500 focus:ring-accent-500">
             </div>
             <button type="button" x-on:click="dueOnly = ! dueOnly" x-bind:aria-pressed="dueOnly.toString()"
@@ -184,8 +184,10 @@
                             </p>
                         </div>
                         @if ($party->daily_book_due > 0)
+                        {{-- From sm up the button sits beside the due; phones get the
+                             full-width one below, so the name isn't squeezed. --}}
                         <button type="button" x-on:click.stop="settling = ! settling"
-                                class="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
+                                class="hidden sm:block rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white hover:bg-emerald-700"
                                 x-bind:class="settling && 'bg-slate-500 hover:bg-slate-600'">
                             <span x-show="! settling">{{ $t['settle'] }}</span>
                             <span x-show="settling" x-cloak>{{ __('Close') }}</span>
@@ -193,6 +195,15 @@
                         @endif
                     </div>
                 </div>
+
+                @if ($party->daily_book_due > 0)
+                <button type="button" x-on:click="settling = ! settling"
+                        class="sm:hidden mt-3 w-full rounded-xl bg-emerald-600 py-3 text-sm font-bold text-white active:bg-emerald-700"
+                        x-bind:class="settling && 'bg-slate-500 active:bg-slate-600'">
+                    <span x-show="! settling">{{ $t['settle'] }}</span>
+                    <span x-show="settling" x-cloak>{{ __('Close') }}</span>
+                </button>
+                @endif
 
                 @if ($party->daily_book_due > 0)
                 <form x-show="settling" x-cloak method="POST" action="{{ route($settleRoute, $party) }}"
