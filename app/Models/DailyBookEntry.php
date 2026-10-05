@@ -48,13 +48,24 @@ class DailyBookEntry extends Model
     public const CUSTOMER_COLLECTION = 'customer_collection';
 
     /**
+     * A small leftover due written off (মাফ) instead of paid — the shop let a
+     * customer off (a loss), or a supplier let the shop off (a gain). Clears
+     * the due like a settle entry, but no money changes hands, so it never
+     * touches Cash in Hand; it does move Net Profit (see summary()).
+     */
+    public const SUPPLIER_WAIVER = 'supplier_waiver';
+
+    public const CUSTOMER_WAIVER = 'customer_waiver';
+
+    /**
      * The two credit "sides" — identical mechanics, mirrored direction:
-     * 'entry' is the type that can leave a due, 'settle' the type that pays
-     * it down, 'flag' the parties column marking who belongs on that side.
+     * 'entry' is the type that can leave a due, 'settle' the cash payment
+     * that pays it down, 'waive' the write-off that clears it without cash,
+     * 'flag' the parties column marking who belongs on that side.
      */
     public const SIDES = [
-        'supplier' => ['entry' => 'purchase', 'settle' => self::SUPPLIER_PAYMENT, 'flag' => 'is_supplier'],
-        'customer' => ['entry' => 'sale', 'settle' => self::CUSTOMER_COLLECTION, 'flag' => 'is_customer'],
+        'supplier' => ['entry' => 'purchase', 'settle' => self::SUPPLIER_PAYMENT, 'waive' => self::SUPPLIER_WAIVER, 'flag' => 'is_supplier'],
+        'customer' => ['entry' => 'sale', 'settle' => self::CUSTOMER_COLLECTION, 'waive' => self::CUSTOMER_WAIVER, 'flag' => 'is_customer'],
     ];
 
     /** 'supplier' for 'purchase', 'customer' for 'sale', null for other types. */
@@ -110,7 +121,7 @@ class DailyBookEntry extends Model
 
     /**
      * Outstanding Daily Book due per party on one side, keyed by party_id:
-     * Σ(entry amount − paid) − Σ(settle amounts). For 'supplier' that's what
+     * Σ(entry amount − paid) − Σ(settle amounts) − Σ(waived amounts). For 'supplier' that's what
      * the shop owes each supplier; for 'customer', what each customer owes
      * the shop. Company-wide, not per-site — a due is owed the same whichever
      * branch logged it.
@@ -119,11 +130,12 @@ class DailyBookEntry extends Model
      */
     public static function dues(string $side): Collection
     {
-        ['entry' => $entry, 'settle' => $settle] = self::SIDES[$side];
+        ['entry' => $entry, 'settle' => $settle, 'waive' => $waive] = self::SIDES[$side];
 
+        // Settles and waivers both take the due down (the ELSE branch).
         return static::query()
             ->whereNotNull('party_id')
-            ->whereIn('type', [$entry, $settle])
+            ->whereIn('type', [$entry, $settle, $waive])
             ->selectRaw('party_id, SUM(CASE WHEN type = ? THEN amount - COALESCE(paid_amount, amount) ELSE -amount END) as due', [$entry])
             ->groupBy('party_id')
             ->pluck('due', 'party_id')

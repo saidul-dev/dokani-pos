@@ -15,6 +15,7 @@
         'count' => __(':count customers with a due', ['count' => $parties->where('daily_book_due', '>', 0)->count()]),
         'settle' => __('Quick Collect'),
         'settleSubmit' => __('Collect'),
+        'waive' => __('Waive the rest (let them off the remaining due)'),
         'notePlaceholder' => __('e.g. Received in cash, bKash…'),
         'empty' => __('No customers yet. Add one with "Add Customer" above, or from a Sale Entry.'),
         'footer' => __('Dues here come from Daily Book sales that weren\'t fully paid, minus collections made from this page. Walk-in sales are always paid in full, so the Walk-in Customer never has a due.'),
@@ -28,6 +29,7 @@
         'count' => __(':count suppliers with a due', ['count' => $parties->where('daily_book_due', '>', 0)->count()]),
         'settle' => __('Quick Pay'),
         'settleSubmit' => __('Pay'),
+        'waive' => __('Supplier waived the rest (they let you off the remaining due)'),
         'notePlaceholder' => __('e.g. Paid in cash, bKash…'),
         'empty' => __('No suppliers yet. Add one with "Add Supplier" above, or from a Purchase Entry.'),
         'footer' => __('Dues here come from Daily Book purchases you didn\'t fully pay, minus payments made from this page.'),
@@ -141,7 +143,18 @@
             </p>
             @forelse ($parties as $party)
             {{-- Reopen the settle form that failed validation, so the owner sees what to fix. --}}
-            <div x-data="{ settling: @js((int) old('settle_party_id') === $party->id) }"
+            @php $reopen = (int) old('settle_party_id') === $party->id; @endphp
+            <div x-data="{
+                    settling: @js($reopen),
+                    due: @js((float) $party->daily_book_due),
+                    amt: @js($reopen ? old('amount', '') : ''),
+                    waive: @js($reopen && (bool) old('waive_rest')),
+                    {{-- What 'waive the rest' would write off: the due left after this payment. --}}
+                    get waiveAmount() {
+                        const left = this.due - (parseFloat(this.amt) || 0);
+                        return left > 0 ? left : 0;
+                    },
+                }"
                  x-bind:hidden="! matches(@js(mb_strtolower($party->name.' '.$party->display_name.' '.$party->phone)), @js($party->daily_book_due > 0))"
                  class="p-4 sm:px-5">
                 {{-- Clicking the row opens this party's ledger; the settle button and
@@ -188,28 +201,41 @@
                     <input type="hidden" name="settle_party_id" value="{{ $party->id }}">
                     <div>
                         <label class="block text-xs font-medium text-slate-500">{{ __('Amount') }}</label>
-                        <x-text-input name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" max="{{ $party->daily_book_due }}"
+                        {{-- With "waive the rest" ticked, 0 / blank is allowed: a pure write-off. --}}
+                        <x-text-input name="amount" type="number" inputmode="decimal" step="0.01" max="{{ $party->daily_book_due }}"
                                       class="mt-1 block w-full !py-3 !text-base rounded-xl"
-                                      :value="(int) old('settle_party_id') === $party->id ? old('amount') : ''"
-                                      placeholder="{{ __('Due: :due', ['due' => number_format($party->daily_book_due, 2)]) }}" required />
+                                      x-model="amt" x-bind:min="waive ? 0 : 0.01" x-bind:required="! waive"
+                                      placeholder="{{ __('Due: :due', ['due' => number_format($party->daily_book_due, 2)]) }}" />
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500">{{ __('Date') }}</label>
                         <x-text-input name="entry_date" type="date"
                                       class="mt-1 block w-full !py-3 !text-base rounded-xl"
-                                      :value="(int) old('settle_party_id') === $party->id ? old('entry_date') : today()->toDateString()" required />
+                                      :value="$reopen ? old('entry_date') : today()->toDateString()" required />
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500">{{ __('Note (optional)') }}</label>
                         <x-text-input name="note" type="text"
                                       class="mt-1 block w-full !py-3 !text-base rounded-xl"
-                                      :value="(int) old('settle_party_id') === $party->id ? old('note') : ''" placeholder="{{ $t['notePlaceholder'] }}" />
+                                      :value="$reopen ? old('note') : ''" placeholder="{{ $t['notePlaceholder'] }}" />
                     </div>
                     <div class="flex items-end">
                         <button type="submit" class="w-full rounded-xl bg-emerald-600 px-5 py-3 text-sm font-bold text-white hover:bg-emerald-700">
                             {{ $t['settleSubmit'] }}
                         </button>
                     </div>
+                    {{-- Write off (মাফ) whatever's left after this payment — recorded as its
+                         own ledger line, so the due ends at 0. --}}
+                    <label class="sm:col-span-4 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-lg bg-amber-50 px-3 py-2.5 ring-1 ring-amber-200 cursor-pointer">
+                        <span class="flex items-center gap-2">
+                            <input type="checkbox" name="waive_rest" value="1" x-model="waive"
+                                   class="h-5 w-5 rounded border-amber-300 text-amber-600 focus:ring-amber-500">
+                            <span class="text-sm font-semibold text-amber-900">{{ $t['waive'] }}</span>
+                        </span>
+                        <span x-show="waive && waiveAmount > 0" x-cloak class="text-sm text-amber-800">
+                            — <span class="font-bold" x-text="'৳' + waiveAmount.toFixed(2)"></span> {{ __('will be waived') }}
+                        </span>
+                    </label>
                 </form>
                 @endif
             </div>

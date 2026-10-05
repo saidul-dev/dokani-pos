@@ -106,9 +106,17 @@ class DailyBookController extends Controller implements HasMiddleware
             ? $totalSale * ((float) $marginPercent / 100)
             : null;
 
+        // Small dues written off (মাফ): letting a customer off is money the
+        // shop won't collect (a loss); a supplier letting the shop off is money
+        // it won't pay (a gain). No cash moves, but profit does.
+        $waivedToCustomers = (float) $baseQuery(DailyBookEntry::CUSTOMER_WAIVER)->sum('amount');
+        $waivedBySuppliers = (float) $baseQuery(DailyBookEntry::SUPPLIER_WAIVER)->sum('amount');
+
         // Expense is an operating cost, not a cost of the goods, so it comes
         // off at the Net line — same gross vs. net split as a real P&L.
-        $netProfit = $grossProfit !== null ? $grossProfit - $totalExpense : null;
+        $netProfit = $grossProfit !== null
+            ? $grossProfit - $totalExpense - $waivedToCustomers + $waivedBySuppliers
+            : null;
 
         return view('admin.daily-book.summary', [
             'range' => $range,
@@ -120,6 +128,8 @@ class DailyBookController extends Controller implements HasMiddleware
             'totalExpense' => $totalExpense,
             'grossProfit' => $grossProfit,
             'netProfit' => $netProfit,
+            'waivedToCustomers' => $waivedToCustomers,
+            'waivedBySuppliers' => $waivedBySuppliers,
             'marginPercent' => $marginPercent,
             'cashInHand' => $this->cashInHand($siteId),
         ]);
@@ -516,28 +526,34 @@ class DailyBookController extends Controller implements HasMiddleware
         // only settling against it is blocked, in partySettle().
         abort_unless($party->{DailyBookEntry::SIDES[$side]['flag']}, 404);
 
-        ['entry' => $entryType, 'settle' => $settleType] = DailyBookEntry::SIDES[$side];
+        ['entry' => $entryType, 'settle' => $settleType, 'waive' => $waiveType] = DailyBookEntry::SIDES[$side];
 
         $entries = DailyBookEntry::with('attachments')
             ->where('party_id', $party->id)
-            ->whereIn('type', [$entryType, $settleType])
+            ->whereIn('type', [$entryType, $settleType, $waiveType])
             ->orderBy('entry_date')
             ->orderBy('id')
             ->get();
 
         $balance = 0.0;
 
-        $rows = $entries->map(function (DailyBookEntry $entry) use ($entryType, &$balance) {
+        // 'settled' is cash only; a waiver is kept apart in 'waived' so the
+        // Paid/Received total never counts written-off money as received.
+        $rows = $entries->map(function (DailyBookEntry $entry) use ($entryType, $waiveType, &$balance) {
             $isEntry = $entry->type === $entryType;
+            $isWaiver = $entry->type === $waiveType;
             $billed = $isEntry ? (float) $entry->amount : 0.0;
-            $settled = $isEntry ? (float) $entry->paid_amount : (float) $entry->amount;
-            $balance += $billed - $settled;
+            $waived = $isWaiver ? (float) $entry->amount : 0.0;
+            $settled = $isEntry ? (float) $entry->paid_amount : ($isWaiver ? 0.0 : (float) $entry->amount);
+            $balance += $billed - $settled - $waived;
 
             return (object) [
                 'entry' => $entry,
                 'is_entry' => $isEntry,
+                'is_waiver' => $isWaiver,
                 'billed' => $billed,
                 'settled' => $settled,
+                'waived' => $waived,
                 'balance' => round($balance, 2),
             ];
         });
@@ -548,20 +564,31 @@ class DailyBookController extends Controller implements HasMiddleware
             'rows' => $rows,
             'totalBilled' => $rows->sum('billed'),
             'totalSettled' => $rows->sum('settled'),
+            'totalWaived' => $rows->sum('waived'),
             'due' => round($balance, 2),
         ]);
     }
 
-    /** Quick Pay (supplier) / Quick Collect (customer) — can't exceed the open due. */
+    /**
+     * Quick Pay (supplier) / Quick Collect (customer) — can't exceed the open
+     * due. With "waive the rest" (মাফ) ticked, whatever's left after this
+     * payment is written off as a separate waiver entry, so the due ends at 0
+     * and the ledger shows the cash and the write-off as two lines. The
+     * amount may then be 0 — a pure write-off of a small leftover.
+     */
     protected function partySettle(Request $request, Party $party, string $side)
     {
         $this->assertCanSettle($party, $side);
 
         $due = DailyBookEntry::dues($side)[$party->id] ?? 0.0;
         $isCustomer = $side === 'customer';
+        $waiveRest = $request->boolean('waive_rest');
 
         $validated = $request->validate([
-            'amount' => ['required', 'numeric', 'min:0.01', 'max:'.$due],
+            // Blank is fine when waiving — it means "pay nothing, write it all off".
+            'amount' => $waiveRest
+                ? ['nullable', 'numeric', 'min:0', 'max:'.$due]
+                : ['required', 'numeric', 'min:0.01', 'max:'.$due],
             'entry_date' => ['required', 'date'],
             'note' => ['nullable', 'string', 'max:2000'],
         ], [
@@ -570,21 +597,41 @@ class DailyBookController extends Controller implements HasMiddleware
                 : __('You only owe :name :due.', ['name' => $party->name, 'due' => number_format($due, 2)]),
         ]);
 
-        DailyBookEntry::create([
-            'type' => DailyBookEntry::SIDES[$side]['settle'],
+        $paid = round((float) ($validated['amount'] ?? 0), 2);
+        $waived = $waiveRest ? round($due - $paid, 2) : 0.0;
+
+        $base = [
             'site_id' => Auth::user()->current_site_id,
             'party_id' => $party->id,
             'entry_date' => $validated['entry_date'],
-            'amount' => $validated['amount'],
             'note' => $validated['note'] ?? null,
             'created_by' => Auth::id(),
-        ]);
+        ];
 
-        $amount = number_format((float) $validated['amount'], 2);
+        DB::transaction(function () use ($base, $side, $paid, $waived) {
+            if ($paid > 0) {
+                DailyBookEntry::create($base + ['type' => DailyBookEntry::SIDES[$side]['settle'], 'amount' => $paid]);
+            }
 
-        return redirect()->route($this->sideRoute($side, 'index'))->with('success', $isCustomer
-            ? __('Collected :amount from :name.', ['amount' => $amount, 'name' => $party->name])
-            : __('Paid :amount to :name.', ['amount' => $amount, 'name' => $party->name]));
+            if ($waived > 0) {
+                DailyBookEntry::create($base + ['type' => DailyBookEntry::SIDES[$side]['waive'], 'amount' => $waived]);
+            }
+        });
+
+        $name = $party->display_name;
+        $paidText = number_format($paid, 2);
+        $waivedText = number_format($waived, 2);
+
+        $message = match (true) {
+            $isCustomer && $paid > 0 && $waived > 0 => __('Collected :amount from :name and waived the remaining :waived.', ['amount' => $paidText, 'name' => $name, 'waived' => $waivedText]),
+            $isCustomer && $waived > 0 => __('Waived :waived for :name.', ['waived' => $waivedText, 'name' => $name]),
+            $isCustomer => __('Collected :amount from :name.', ['amount' => $paidText, 'name' => $name]),
+            $paid > 0 && $waived > 0 => __('Paid :amount to :name; they waived the remaining :waived.', ['amount' => $paidText, 'name' => $name, 'waived' => $waivedText]),
+            $waived > 0 => __(':name waived :waived.', ['waived' => $waivedText, 'name' => $name]),
+            default => __('Paid :amount to :name.', ['amount' => $paidText, 'name' => $name]),
+        };
+
+        return redirect()->route($this->sideRoute($side, 'index'))->with('success', $message);
     }
 
     /** 'daily-book.suppliers.index', 'daily-book.customers.ledger', ... */

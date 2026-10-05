@@ -298,6 +298,18 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   doesn't exist yet (and backfills `paid_amount = amount` on pre-existing sales, so they
   stay fully received).
 
+  **Waivers (মাফ)** (2026-10-05) — small leftover dues written off so a party's account
+  reaches 0. A "waive the rest" checkbox on Quick Collect / Quick Pay writes off whatever
+  remains after that payment (amount may be blank/0 for a pure write-off), as its own
+  `customer_waiver` / `supplier_waiver` entry (`DailyBookEntry::SIDES[...]['waive']`), so
+  the ledger shows the cash and the write-off as two lines (the waived amount is kept out
+  of the Paid/Received total and shown as "+ X waived"). `dues()` subtracts waivers like
+  settles. No cash moves, so Cash in Hand ignores them; Net Profit does not — a customer
+  waiver is a loss, a supplier waiver a gain: Net Profit = Gross − Expense − waived to
+  customers + waived by suppliers (in the selected range), with the waiver lines shown
+  under Net Profit only when non-zero. No cap on the amount — the owner decides what
+  counts as "small".
+
   **Settings** (`daily-book.settings.*` routes, gated by the stricter
   **`daily-book.edit`** permission rather than `.view` — only Admin/Super Admin have it
   by default) — one field, `CompanySetting::daily_book_profit_margin_percent` (nullable

@@ -1643,5 +1643,16 @@
     ":name was already saved with this phone number — added to your suppliers.": "এই ফোন নম্বরে :name আগে থেকেই সংরক্ষিত ছিলেন — আপনার সরবরাহকারী তালিকায় যোগ হয়েছে।",
     "Supplier :name added.": "সরবরাহকারী :name যোগ হয়েছে।",
     "You only owe :name :due.": ":name এর কাছে আপনার বাকি শুধু :due।",
-    "Paid :amount to :name.": ":name কে :amount পরিশোধ করা হয়েছে।"
+    "Paid :amount to :name.": ":name কে :amount পরিশোধ করা হয়েছে।",
+    "Waive the rest (let them off the remaining due)": "বাকিটা মাফ করুন",
+    "Supplier waived the rest (they let you off the remaining due)": "সরবরাহকারী বাকিটা মাফ করেছেন",
+    "will be waived": "মাফ হবে",
+    "Waived": "মাফ",
+    ":amount waived": ":amount মাফ",
+    "Waived to customers: :amount": "গ্রাহকদের মাফ: :amount",
+    "Waived by suppliers: :amount": "সরবরাহকারীদের মাফ: :amount",
+    "Collected :amount from :name and waived the remaining :waived.": ":name এর কাছ থেকে :amount আদায় হয়েছে, বাকি :waived মাফ করা হয়েছে।",
+    "Waived :waived for :name.": ":name এর :waived মাফ করা হয়েছে।",
+    "Paid :amount to :name; they waived the remaining :waived.": ":name কে :amount পরিশোধ করা হয়েছে; বাকি :waived তারা মাফ করেছেন।",
+    ":name waived :waived.": ":name :waived মাফ করেছেন।"
 }

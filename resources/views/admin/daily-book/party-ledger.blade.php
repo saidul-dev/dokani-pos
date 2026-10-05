@@ -40,6 +40,9 @@
         <div class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
             <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">{{ $t['settledTotal'] }}</p>
             <p class="mt-1 text-sm sm:text-base font-bold text-emerald-600 break-words">{{ number_format($totalSettled, 2) }}</p>
+            @if ($totalWaived > 0)
+            <p class="mt-0.5 text-[11px] font-semibold text-amber-700">+ {{ __(':amount waived', ['amount' => number_format($totalWaived, 2)]) }}</p>
+            @endif
         </div>
         <div class="rounded-xl p-3 ring-1 {{ $due > 0 ? 'bg-rose-50 ring-rose-200' : 'bg-slate-50 ring-slate-200' }}">
             <p class="text-[11px] font-medium uppercase tracking-wide {{ $due > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ __('Due') }}</p>
@@ -66,8 +69,8 @@
                 <tr>
                     <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ $row->entry->entry_date->translatedFormat('d M, Y') }}</td>
                     <td class="px-3 py-2.5">
-                        <span class="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $row->is_entry ? 'bg-brand-50 text-brand-800' : 'bg-emerald-50 text-emerald-700' }}">
-                            {{ $row->is_entry ? $t['entryBadge'] : $t['settleBadge'] }}
+                        <span class="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $row->is_entry ? 'bg-brand-50 text-brand-800' : ($row->is_waiver ? 'bg-amber-50 text-amber-700' : 'bg-emerald-50 text-emerald-700') }}">
+                            {{ $row->is_entry ? $t['entryBadge'] : ($row->is_waiver ? __('Waived') : $t['settleBadge']) }}
                         </span>
                         @if ($row->entry->note)
                         <p class="mt-1 text-xs text-slate-500">{{ $row->entry->note }}</p>
@@ -78,7 +81,15 @@
                         @endif
                     </td>
                     <td class="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{{ $row->billed > 0 ? number_format($row->billed, 2) : '—' }}</td>
-                    <td class="whitespace-nowrap px-3 py-2.5 text-right text-emerald-600">{{ $row->settled > 0 ? number_format($row->settled, 2) : '—' }}</td>
+                    {{-- A waiver clears the due without cash — shown in amber here, and kept
+                         out of the Paid/Received total above. --}}
+                    <td class="whitespace-nowrap px-3 py-2.5 text-right">
+                        @if ($row->is_waiver)
+                        <span class="text-amber-700">{{ number_format($row->waived, 2) }}</span>
+                        @else
+                        <span class="text-emerald-600">{{ $row->settled > 0 ? number_format($row->settled, 2) : '—' }}</span>
+                        @endif
+                    </td>
                     <td class="whitespace-nowrap px-3 py-2.5 text-right font-semibold {{ $row->balance > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ number_format($row->balance, 2) }}</td>
                 </tr>
                 @endforeach

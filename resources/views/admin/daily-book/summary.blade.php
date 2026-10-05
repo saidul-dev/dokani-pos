@@ -126,6 +126,13 @@
                 <div class="min-w-0">
                     <h3 class="font-bold text-brand-900 text-sm sm:text-base">{{ __('Net Profit') }}</h3>
                     <p class="text-xs text-slate-400">{{ __('Gross Profit − Total Expense') }}</p>
+                    {{-- Write-offs (মাফ) in this range — only shown when there are any. --}}
+                    @if ($waivedToCustomers > 0)
+                    <p class="text-xs text-slate-400">− {{ __('Waived to customers: :amount', ['amount' => number_format($waivedToCustomers, 2)]) }}</p>
+                    @endif
+                    @if ($waivedBySuppliers > 0)
+                    <p class="text-xs text-slate-400">+ {{ __('Waived by suppliers: :amount', ['amount' => number_format($waivedBySuppliers, 2)]) }}</p>
+                    @endif
                 </div>
                 @if ($netProfit === null)
                 <p class="shrink-0 text-xl sm:text-2xl font-bold text-slate-300">—</p>
