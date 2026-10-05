@@ -101,12 +101,38 @@
         </div>
         @endif
 
-        {{-- ledgerUrl is set by the row clicked; the modal below fetches it on open. --}}
-        <div x-data="{ ledgerUrl: null }">
+        {{-- ledgerUrl is set by the row clicked; the modal below fetches it on open.
+             q is the search box: filters rows by name or phone as you type, entirely
+             in the browser (every row is already on the page — no reload). --}}
+        <div x-data="{
+                ledgerUrl: null,
+                q: '',
+                all: @js($parties->map(fn ($p) => mb_strtolower($p->name.' '.$p->phone))->values()),
+                matches(text) {
+                    const s = this.q.trim().toLowerCase();
+                    return s === '' || text.includes(s);
+                },
+                get noMatch() {
+                    return this.q.trim() !== '' && ! this.all.some(t => this.matches(t));
+                },
+            }">
+        @if ($parties->isNotEmpty())
+        <div class="relative mb-3">
+            <svg class="pointer-events-none absolute left-4 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m21 21-5.197-5.197m0 0A7.5 7.5 0 1 0 5.196 5.196a7.5 7.5 0 0 0 10.607 10.607Z"/></svg>
+            <input type="search" x-model="q" inputmode="search" autocomplete="off"
+                   placeholder="{{ __('Search by name or mobile number') }}"
+                   class="block w-full rounded-xl border-slate-300 py-3 pl-12 pr-4 text-base shadow-sm focus:border-accent-500 focus:ring-accent-500">
+        </div>
+        @endif
         <div class="rounded-2xl bg-white shadow-sm ring-1 ring-slate-200 divide-y divide-slate-100">
+            {{-- :hidden (not x-show) on these rows: Tailwind's divide-y skips
+                 [hidden] siblings, so filtering never leaves a stray top border. --}}
+            <p hidden x-bind:hidden="! noMatch" class="px-5 py-10 text-center text-sm text-slate-400">{{ __('No one matches that name or number.') }}</p>
             @forelse ($parties as $party)
             {{-- Reopen the settle form that failed validation, so the owner sees what to fix. --}}
-            <div x-data="{ settling: @js((int) old('settle_party_id') === $party->id) }" class="p-4 sm:px-5">
+            <div x-data="{ settling: @js((int) old('settle_party_id') === $party->id) }"
+                 x-bind:hidden="! matches(@js(mb_strtolower($party->name.' '.$party->phone)))"
+                 class="p-4 sm:px-5">
                 {{-- Clicking the row opens this party's ledger; the settle button and
                      the phone link stop the click so they keep doing their own job. --}}
                 <div role="button" tabindex="0"
