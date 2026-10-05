@@ -256,19 +256,24 @@ Each of these should go through its own brainstorming → spec → plan cycle wh
   Supplier": name + phone; a phone that's already a customer gets the supplier flag too,
   one that's already a supplier is refused) or quick-added on a Purchase Entry (a phone
   already on file is reused, and the success message names who it was recorded under).
-  The purchase form's "Paid now" defaults to the full amount; anything less is a due, and
-  a due **requires** a supplier (enforced client- and server-side). Due per supplier =
+  The purchase form's "Paid now" is required and always typed by the owner (or filled by a
+  "Full amount" button) — it was first auto-synced to Amount, but the client asked
+  (2026-10-05) for it to stay empty until typed, so a forgotten field can't silently record
+  a credit purchase as paid. Anything less than Amount is a due, and a due **requires** a
+  supplier (enforced client- and server-side). Due per supplier =
   Σ(purchase amount − `paid_amount`) − Σ(`supplier_payment` entries)
   (`DailyBookEntry::supplierDues()`, company-wide). The Suppliers page lists every
-  supplier with their due, highest first, with Quick Pay (prefilled with the full due,
-  can't exceed it). **Dues are Daily-Book-only** — nothing posts to the ledger, so
+  supplier with their due, highest first, with Quick Pay (amount typed by hand, the due
+  shown as a placeholder, can't exceed it) and a per-supplier ledger modal (click a row;
+  `supplierLedger()` returns a partial — running balance, oldest first, last balance =
+  the listed due). **Dues are Daily-Book-only** — nothing posts to the ledger, so
   `Party::payableBalance()` in the full system does not include them; reconciling the two
   is a job for the eventual Daily Book → full system upgrade path. `party_id` is
   restrict-on-delete, so a supplier with Daily Book history can't be silently deleted
   from Parties (the existing PartyController doesn't catch that FK error yet — same
   pre-existing gap as parties with sales/purchases). Not built: customer-side credit
   sales (বাকি খাতা), an opening due for a supplier owed money from before the shop
-  started using Daily Book, and a per-supplier payment history page.
+  started using Daily Book.
 
   **Settings** (`daily-book.settings.*` routes, gated by the stricter
   **`daily-book.edit`** permission rather than `.view` — only Admin/Super Admin have it

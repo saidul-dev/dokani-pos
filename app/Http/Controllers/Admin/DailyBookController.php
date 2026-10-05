@@ -229,8 +229,9 @@ class DailyBookController extends Controller implements HasMiddleware
 
         if ($isPurchase) {
             $rules += [
-                // Prefilled with the full amount on the form, so a cash
-                // purchase needs no extra typing; anything less is a due.
+                // Typed by the owner (or "Full amount" on the form) — never
+                // assumed, so a forgotten field can't silently record a
+                // credit purchase as paid. Anything less than amount is a due.
                 'paid_amount' => ['required', 'numeric', 'min:0', 'lte:amount'],
                 'party_id' => ['nullable', Rule::exists('parties', 'id')->where('is_supplier', true)],
                 // Quick add — just name + phone, the same two things a
@@ -241,6 +242,7 @@ class DailyBookController extends Controller implements HasMiddleware
         }
 
         $validated = $request->validate($rules, [
+            'paid_amount.required' => __('Enter how much you paid now — 0 if you paid nothing.'),
             'paid_amount.lte' => __('Paid amount can\'t be more than the purchase amount.'),
         ]);
 

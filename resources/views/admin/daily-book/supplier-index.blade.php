@@ -115,7 +115,8 @@
                         <label class="block text-xs font-medium text-slate-500">{{ __('Amount') }}</label>
                         <x-text-input name="amount" type="number" inputmode="decimal" step="0.01" min="0.01" max="{{ $supplier->daily_book_due }}"
                                       class="mt-1 block w-full !py-3 !text-base rounded-xl"
-                                      :value="(int) old('pay_party_id') === $supplier->id ? old('amount') : $supplier->daily_book_due" required />
+                                      :value="(int) old('pay_party_id') === $supplier->id ? old('amount') : ''"
+                                      placeholder="{{ __('Due: :due', ['due' => number_format($supplier->daily_book_due, 2)]) }}" required />
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500">{{ __('Date') }}</label>
