@@ -35,18 +35,18 @@
     <div class="mt-4 grid grid-cols-3 gap-2 sm:gap-3">
         <div class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
             <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">{{ $t['billedTotal'] }}</p>
-            <p class="mt-1 text-sm sm:text-base font-bold text-brand-900 break-words">{{ number_format($totalBilled, 2) }}</p>
+            <p class="mt-1 text-sm sm:text-base font-bold text-brand-900 break-words">{{ \App\Support\Money::format($totalBilled) }}</p>
         </div>
         <div class="rounded-xl bg-slate-50 p-3 ring-1 ring-slate-200">
             <p class="text-[11px] font-medium uppercase tracking-wide text-slate-500">{{ $t['settledTotal'] }}</p>
-            <p class="mt-1 text-sm sm:text-base font-bold text-emerald-600 break-words">{{ number_format($totalSettled, 2) }}</p>
+            <p class="mt-1 text-sm sm:text-base font-bold text-emerald-600 break-words">{{ \App\Support\Money::format($totalSettled) }}</p>
             @if ($totalWaived > 0)
-            <p class="mt-0.5 text-[11px] font-semibold text-amber-700">+ {{ __(':amount waived', ['amount' => number_format($totalWaived, 2)]) }}</p>
+            <p class="mt-0.5 text-[11px] font-semibold text-amber-700">+ {{ __(':amount waived', ['amount' => \App\Support\Money::format($totalWaived)]) }}</p>
             @endif
         </div>
         <div class="rounded-xl p-3 ring-1 {{ $due > 0 ? 'bg-rose-50 ring-rose-200' : 'bg-slate-50 ring-slate-200' }}">
             <p class="text-[11px] font-medium uppercase tracking-wide {{ $due > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ __('Due') }}</p>
-            <p class="mt-1 text-sm sm:text-base font-bold break-words {{ $due > 0 ? 'text-rose-600' : 'text-slate-400' }}">{{ number_format($due, 2) }}</p>
+            <p class="mt-1 text-sm sm:text-base font-bold break-words {{ $due > 0 ? 'text-rose-600' : 'text-slate-400' }}">{{ \App\Support\Money::format($due) }}</p>
         </div>
     </div>
 
@@ -74,19 +74,19 @@
                 </div>
                 <div class="shrink-0 text-right text-sm">
                     @if ($row->is_entry)
-                    <p class="font-semibold text-slate-800">{{ number_format($row->billed, 2) }}</p>
+                    <p class="font-semibold text-slate-800">{{ \App\Support\Money::format($row->billed) }}</p>
                     @if ($row->settled > 0)
-                    <p class="text-xs text-emerald-600">{{ $t['settledCol'] }} {{ number_format($row->settled, 2) }}</p>
+                    <p class="text-xs text-emerald-600">{{ $t['settledCol'] }} {{ \App\Support\Money::format($row->settled) }}</p>
                     @endif
                     @elseif ($row->is_waiver)
-                    <p class="font-semibold text-amber-700">− {{ number_format($row->waived, 2) }}</p>
+                    <p class="font-semibold text-amber-700">− {{ \App\Support\Money::format($row->waived) }}</p>
                     @else
-                    <p class="font-semibold text-emerald-600">− {{ number_format($row->settled, 2) }}</p>
+                    <p class="font-semibold text-emerald-600">− {{ \App\Support\Money::format($row->settled) }}</p>
                     @endif
                 </div>
             </div>
             <p class="mt-1.5 text-right text-xs text-slate-400">
-                {{ __('Balance') }}: <span class="font-semibold {{ $row->balance > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ number_format($row->balance, 2) }}</span>
+                {{ __('Balance') }}: <span class="font-semibold {{ $row->balance > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ \App\Support\Money::format($row->balance) }}</span>
             </p>
         </li>
         @endforeach
@@ -119,17 +119,17 @@
                            class="mt-1 inline-block text-xs font-semibold text-brand-700 hover:underline">{{ __('Receipt photo') }}</a>
                         @endif
                     </td>
-                    <td class="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{{ $row->billed > 0 ? number_format($row->billed, 2) : '—' }}</td>
+                    <td class="whitespace-nowrap px-3 py-2.5 text-right text-slate-700">{{ $row->billed > 0 ? \App\Support\Money::format($row->billed) : '—' }}</td>
                     {{-- A waiver clears the due without cash — shown in amber here, and kept
                          out of the Paid/Received total above. --}}
                     <td class="whitespace-nowrap px-3 py-2.5 text-right">
                         @if ($row->is_waiver)
-                        <span class="text-amber-700">{{ number_format($row->waived, 2) }}</span>
+                        <span class="text-amber-700">{{ \App\Support\Money::format($row->waived) }}</span>
                         @else
-                        <span class="text-emerald-600">{{ $row->settled > 0 ? number_format($row->settled, 2) : '—' }}</span>
+                        <span class="text-emerald-600">{{ $row->settled > 0 ? \App\Support\Money::format($row->settled) : '—' }}</span>
                         @endif
                     </td>
-                    <td class="whitespace-nowrap px-3 py-2.5 text-right font-semibold {{ $row->balance > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ number_format($row->balance, 2) }}</td>
+                    <td class="whitespace-nowrap px-3 py-2.5 text-right font-semibold {{ $row->balance > 0 ? 'text-rose-600' : 'text-slate-500' }}">{{ \App\Support\Money::format($row->balance) }}</td>
                 </tr>
                 @endforeach
             </tbody>

@@ -1,9 +1,11 @@
 <x-app-layout>
     <x-slot name="title">{{ __('Daily Book Settings') }}</x-slot>
+    {{-- Phones: app-bar title; the explainer stays since it says what the % is for. --}}
+    <x-slot name="mobileTitle">{{ __('Settings') }}</x-slot>
     <x-slot name="header">
         <div>
-            <h2 class="text-xl sm:text-2xl font-bold text-brand-900">{{ __('Daily Book Settings') }}</h2>
-            <p class="text-sm text-slate-500 mt-0.5">
+            <h2 class="hidden sm:block text-xl sm:text-2xl font-bold text-brand-900">{{ __('Daily Book Settings') }}</h2>
+            <p class="text-sm text-slate-500 sm:mt-0.5">
                 {{ __('Your profit % on sales — used to calculate Gross and Net Profit on the Daily Book Summary.') }}
             </p>
         </div>
@@ -45,7 +47,7 @@
 
         <!-- Mobile: sticky bottom action bar, app-style -->
         <div class="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur px-4 pt-3"
-             style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+             style="bottom: var(--bottom-nav-h, 0px); padding-bottom: var(--save-bar-pb, max(0.75rem, env(safe-area-inset-bottom)));">
             <button type="submit" class="w-full rounded-xl bg-brand-800 px-4 py-3.5 text-center text-sm font-bold text-white shadow-sm active:bg-brand-900">
                 {{ __('Save Changes') }}
             </button>

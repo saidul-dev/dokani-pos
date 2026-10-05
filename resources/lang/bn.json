@@ -1655,5 +1655,6 @@
     "Waived :waived for :name.": ":name এর :waived মাফ করা হয়েছে।",
     "Paid :amount to :name; they waived the remaining :waived.": ":name কে :amount পরিশোধ করা হয়েছে; বাকি :waived তারা মাফ করেছেন।",
     ":name waived :waived.": ":name :waived মাফ করেছেন।",
-    "More": "আরো"
+    "More": "আরো",
+    "All-time": "শুরু থেকে এখন পর্যন্ত"
 }

@@ -39,8 +39,10 @@
 @endphp
 <x-app-layout>
     <x-slot name="title">{{ __(':type Entry', ['type' => $typeLabel]) }}</x-slot>
+    {{-- Phones: app-bar title instead of the heading + explainer. --}}
+    <x-slot name="mobileTitle">{{ __('New :type Entry', ['type' => $typeLabel]) }}</x-slot>
     <x-slot name="header">
-        <div>
+        <div class="hidden sm:block">
             <h2 class="text-xl sm:text-2xl font-bold text-brand-900">{{ __('New :type Entry', ['type' => $typeLabel]) }}</h2>
             <p class="text-sm text-slate-500 mt-0.5">
                 {{ __('A quick daily log — just the amount, no product lines. This does not affect Accounts or Stock.') }}
@@ -251,7 +253,7 @@
 
             <!-- Mobile: sticky bottom action bar, app-style -->
             <div class="sm:hidden fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur px-4 pt-3"
-                 style="padding-bottom: max(0.75rem, env(safe-area-inset-bottom));">
+                 style="bottom: var(--bottom-nav-h, 0px); padding-bottom: var(--save-bar-pb, max(0.75rem, env(safe-area-inset-bottom)));">
                 <div class="flex items-center gap-3">
                     <a href="{{ route('daily-book.entries.index', $type) }}"
                        class="flex-1 rounded-xl px-4 py-3.5 text-center text-sm font-semibold text-slate-500 ring-1 ring-slate-200">

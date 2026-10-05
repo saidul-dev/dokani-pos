@@ -16,7 +16,14 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="font-sans antialiased bg-slate-100" x-data="{ sidebarOpen: false }">
+@php
+    // Android-style bottom tab bar for Daily-Book-only shop owners on phones/tablets,
+    // pinned on every page. Pages with their own mobile Save bar (entry form,
+    // Settings) sit it on top of the tab bar via --bottom-nav-h.
+    $showBottomNav = Auth::user()->hasRole('Daily Book Admin');
+@endphp
+<body class="font-sans antialiased bg-slate-100" x-data="{ sidebarOpen: false }"
+    @if ($showBottomNav) style="--bottom-nav-h: calc(4rem + env(safe-area-inset-bottom)); --save-bar-pb: 0.75rem;" @endif>
     <div class="min-h-screen">
 
         <!-- Mobile sidebar backdrop -->
@@ -24,9 +31,12 @@
             @click="sidebarOpen = false" style="display: none;"></div>
 
         <!-- Sidebar -->
+        {{-- -translate-x-full is in the static class so the sidebar starts hidden on phones
+             before Alpine boots; otherwise every page load (e.g. tapping a bottom tab)
+             flashed it open and slid it shut. The object :class removes it when opened. --}}
         <aside
-            class="fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-brand-900 via-brand-900 to-brand-950 text-brand-100 flex flex-col transform transition-all duration-200 lg:translate-x-0"
-            :class="[sidebarOpen ? 'translate-x-0' : '-translate-x-full', $store.sidebar.collapsed ? 'lg:w-20' : 'lg:w-64']">
+            class="fixed inset-y-0 left-0 z-40 w-64 bg-gradient-to-b from-brand-900 via-brand-900 to-brand-950 text-brand-100 flex flex-col transform transition-all duration-200 -translate-x-full lg:translate-x-0"
+            :class="{ 'translate-x-0': sidebarOpen, '-translate-x-full': !sidebarOpen, 'lg:w-20': $store.sidebar.collapsed, 'lg:w-64': !$store.sidebar.collapsed }">
 
             <!-- Collapse/expand toggle (desktop only) -->
             <button type="button" @click="$store.sidebar.toggle()" title="Collapse or expand the sidebar"
@@ -706,6 +716,11 @@
                     </svg>
                 </button>
 
+                {{-- Optional per-page app-bar title on phones (pages pass a mobileTitle slot). --}}
+                @isset($mobileTitle)
+                <h1 class="sm:hidden flex-1 min-w-0 truncate text-lg font-bold text-brand-900">{{ $mobileTitle }}</h1>
+                @endisset
+
                 <div class="flex-1 min-w-0 hidden sm:block">
                     <div class="relative max-w-md">
                         <svg class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-slate-400"
@@ -959,7 +974,7 @@
 
             <!-- Page Heading -->
             @isset($header)
-            <div class="px-4 sm:px-6 pt-6">
+            <div class="px-4 sm:px-6 {{ isset($mobileTitle) ? 'pt-3' : 'pt-6' }} sm:pt-6">
                 {{ $header }}
             </div>
             @endisset
@@ -993,16 +1008,8 @@
             </div>
             @endif
 
-            @php
-                // Android-style bottom tab bar for Daily-Book-only shop owners on
-                // phones/tablets — skipped on pages that already pin their own
-                // Save bar to the bottom (entry form, Settings).
-                $showBottomNav = Auth::user()->hasRole('Daily Book Admin')
-                    && ! request()->routeIs('daily-book.entries.create', 'daily-book.settings.edit');
-            @endphp
-
             <!-- Page Content -->
-            <main class="flex-1 min-w-0 px-4 sm:px-6 py-6 {{ $showBottomNav ? 'pb-28 lg:pb-6' : '' }}">
+            <main class="flex-1 min-w-0 px-4 sm:px-6 {{ isset($mobileTitle) ? 'py-4' : 'py-6' }} sm:py-6 {{ $showBottomNav ? 'pb-28 lg:pb-6' : '' }}">
                 {{ $slot }}
             </main>
         </div>
@@ -1020,13 +1027,14 @@
                  'icon' => 'M15 9h3.75M15 12h3.75M15 15h3.75M4.5 19.5h15a2.25 2.25 0 0 0 2.25-2.25V6.75A2.25 2.25 0 0 0 19.5 4.5h-15a2.25 2.25 0 0 0-2.25 2.25v10.5A2.25 2.25 0 0 0 4.5 19.5Zm6-10.125a1.875 1.875 0 1 1-3.75 0 1.875 1.875 0 0 1 3.75 0Zm1.294 6.336a6.721 6.721 0 0 1-3.17.789 6.721 6.721 0 0 1-3.168-.789 3.376 3.376 0 0 1 6.338 0Z'],
             ];
         @endphp
-        <nav class="lg:hidden fixed inset-x-0 bottom-0 z-20 border-t border-slate-200 bg-white/95 backdrop-blur"
+        {{-- Dark brand navy, matching the sidebar and the Cash in Hand card. --}}
+        <nav class="lg:hidden fixed inset-x-0 bottom-0 z-20 bg-brand-900 shadow-[0_-4px_16px_rgba(15,23,42,0.18)]"
              style="padding-bottom: env(safe-area-inset-bottom);">
-            <div class="grid grid-cols-5">
+            <div class="grid h-16 grid-cols-5">
                 @foreach ($tabs as $tab)
                 <a href="{{ $tab['route'] }}"
-                   class="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold {{ $tab['active'] ? 'text-brand-800' : 'text-slate-400' }}">
-                    <span class="grid h-7 w-12 place-items-center rounded-full {{ $tab['active'] ? 'bg-brand-100' : '' }}">
+                   class="flex flex-col items-center justify-center gap-1 text-[11px] font-semibold {{ $tab['active'] ? 'text-white' : 'text-brand-300 active:text-white' }}">
+                    <span class="grid h-7 w-12 place-items-center rounded-full {{ $tab['active'] ? 'bg-white/15 text-accent-400' : '' }}">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="{{ $tab['icon'] }}"/></svg>
                     </span>
                     <span class="truncate max-w-full px-1">{{ $tab['label'] }}</span>
@@ -1034,7 +1042,7 @@
                 @endforeach
                 {{-- Everything else (Expense, Capital, Suppliers, Settings) stays in the sidebar. --}}
                 <button type="button" @click="sidebarOpen = true"
-                        class="flex flex-col items-center gap-1 py-2.5 text-[11px] font-semibold text-slate-400">
+                        class="flex flex-col items-center justify-center gap-1 text-[11px] font-semibold text-brand-300 active:text-white">
                     <span class="grid h-7 w-12 place-items-center rounded-full">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/></svg>
                     </span>

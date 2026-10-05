@@ -37,9 +37,11 @@
 @endphp
 <x-app-layout>
     <x-slot name="title">{{ $t['title'] }}</x-slot>
+    {{-- Phones: app-bar title instead of the heading + explainer. --}}
+    <x-slot name="mobileTitle">{{ $t['title'] }}</x-slot>
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-3">
-            <div>
+            <div class="hidden sm:block">
                 <h2 class="text-xl sm:text-2xl font-bold text-brand-900">{{ $t['heading'] }}</h2>
                 <p class="text-sm text-slate-500 mt-0.5">{{ $t['subtitle'] }}</p>
             </div>
@@ -92,7 +94,7 @@
         <!-- Total due across everyone on this side (all-time, company-wide) -->
         <div class="rounded-2xl bg-gradient-to-br from-brand-800 to-brand-900 p-4 sm:p-5 shadow-sm">
             <p class="text-sm font-medium text-brand-200">{{ $t['total'] }}</p>
-            <p class="mt-1.5 text-2xl sm:text-3xl font-bold text-white">{{ number_format($totalDue, 2) }}</p>
+            <p class="mt-1.5 text-2xl sm:text-3xl font-bold text-white">{{ \App\Support\Money::format($totalDue) }}</p>
             <p class="mt-1 text-xs text-brand-300">{{ $t['count'] }}</p>
         </div>
 
@@ -180,7 +182,7 @@
                         <div class="text-right">
                             <p class="text-[11px] uppercase tracking-wide text-slate-400">{{ __('Due') }}</p>
                             <p class="text-lg font-bold {{ $party->daily_book_due > 0 ? 'text-rose-600' : 'text-slate-300' }}">
-                                {{ number_format($party->daily_book_due, 2) }}
+                                {{ \App\Support\Money::format($party->daily_book_due) }}
                             </p>
                         </div>
                         @if ($party->daily_book_due > 0)
@@ -216,7 +218,7 @@
                         <x-text-input name="amount" type="number" inputmode="decimal" step="0.01" max="{{ $party->daily_book_due }}"
                                       class="mt-1 block w-full !py-3 !text-base rounded-xl"
                                       x-model="amt" x-bind:min="waive ? 0 : 0.01" x-bind:required="! waive"
-                                      placeholder="{{ __('Due: :due', ['due' => number_format($party->daily_book_due, 2)]) }}" />
+                                      placeholder="{{ __('Due: :due', ['due' => \App\Support\Money::format($party->daily_book_due)]) }}" />
                     </div>
                     <div>
                         <label class="block text-xs font-medium text-slate-500">{{ __('Date') }}</label>

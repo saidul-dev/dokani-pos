@@ -9,9 +9,11 @@
 @endphp
 <x-app-layout>
     <x-slot name="title">{{ __(':type Entry', ['type' => $typeLabel]) }}</x-slot>
+    {{-- Phones: app-bar title instead of the heading + explainer. --}}
+    <x-slot name="mobileTitle">{{ __(':type Entry', ['type' => $typeLabel]) }}</x-slot>
     <x-slot name="header">
         <div class="flex flex-wrap items-center justify-between gap-4">
-            <div>
+            <div class="hidden sm:block">
                 <h2 class="text-xl sm:text-2xl font-bold text-brand-900">{{ __('Daily Book — :type Entry', ['type' => $typeLabel]) }}</h2>
                 <p class="text-sm text-slate-500 mt-0.5">
                     {{ __('Quick daily log — no product lines, no ledger posting, no stock effect.') }}
@@ -51,10 +53,10 @@
                     </p>
                 </div>
                 <div class="shrink-0 text-right">
-                    <p class="font-bold text-brand-900">{{ number_format($entry->amount, 2) }}</p>
+                    <p class="font-bold text-brand-900">{{ \App\Support\Money::format($entry->amount) }}</p>
                     @if ($side && $entry->due_amount > 0)
                     <p class="mt-0.5 inline-block rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-600">
-                        {{ __('Due') }} {{ number_format($entry->due_amount, 2) }}
+                        {{ __('Due') }} {{ \App\Support\Money::format($entry->due_amount) }}
                     </p>
                     @endif
                 </div>
@@ -105,10 +107,10 @@
                         <span class="text-slate-300">—</span>
                         @endif
                     </td>
-                    <td class="px-5 py-3 text-right font-semibold text-brand-900">{{ number_format($entry->amount, 2) }}</td>
+                    <td class="px-5 py-3 text-right font-semibold text-brand-900">{{ \App\Support\Money::format($entry->amount) }}</td>
                     @if ($side)
                     <td class="px-5 py-3 text-right font-semibold {{ $entry->due_amount > 0 ? 'text-rose-600' : 'text-slate-300' }}">
-                        {{ $entry->due_amount > 0 ? number_format($entry->due_amount, 2) : '—' }}
+                        {{ $entry->due_amount > 0 ? \App\Support\Money::format($entry->due_amount) : '—' }}
                     </td>
                     @endif
                     <td class="px-5 py-3 text-slate-500">{{ $entry->creator->name ?? '—' }}</td>
