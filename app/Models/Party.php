@@ -68,6 +68,15 @@ class Party extends Model
         return $this->phone === self::WALKIN_PHONE;
     }
 
+    /**
+     * Name to show on screen. The walk-in is a system record, so its name is
+     * translated rather than shown as stored; everyone else's name is data.
+     */
+    public function getDisplayNameAttribute(): string
+    {
+        return $this->isWalkIn() ? __('Walk-in Customer') : $this->name;
+    }
+
     public function getRoleLabelAttribute(): string
     {
         return match (true) {

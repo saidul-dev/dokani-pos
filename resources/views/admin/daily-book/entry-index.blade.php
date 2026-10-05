@@ -49,10 +49,10 @@
             <tbody class="divide-y divide-slate-100">
                 @forelse ($entries as $entry)
                 <tr class="hover:bg-slate-50">
-                    <td class="px-5 py-3 text-slate-600">{{ $entry->entry_date->format('d M, Y') }}</td>
+                    <td class="px-5 py-3 text-slate-600">{{ $entry->entry_date->translatedFormat('d M, Y') }}</td>
                     <td class="hidden px-5 py-3 text-slate-600">{{ $entry->site->name ?? '—' }}</td>
                     @if ($side)
-                    <td class="px-5 py-3 text-slate-600">{{ $entry->party->name ?? '—' }}</td>
+                    <td class="px-5 py-3 text-slate-600">{{ $entry->party?->display_name ?? '—' }}</td>
                     @endif
                     <td class="px-5 py-3 text-slate-500">{{ $entry->note ?: '—' }}</td>
                     <td class="px-5 py-3">

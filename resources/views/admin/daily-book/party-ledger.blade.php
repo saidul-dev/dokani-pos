@@ -28,7 +28,7 @@
 <div class="p-4 sm:p-6">
     <div class="pr-10">
         <p class="text-xs font-semibold uppercase tracking-wide text-slate-400">{{ $t['heading'] }}</p>
-        <h3 class="mt-0.5 text-lg sm:text-xl font-bold text-brand-900">{{ $party->name }}</h3>
+        <h3 class="mt-0.5 text-lg sm:text-xl font-bold text-brand-900">{{ $party->display_name }}</h3>
         <a href="tel:{{ $party->phone }}" class="text-sm text-slate-500 hover:text-brand-800">{{ $party->phone }}</a>
     </div>
 
@@ -64,7 +64,7 @@
             <tbody class="divide-y divide-slate-100">
                 @foreach ($rows as $row)
                 <tr>
-                    <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ $row->entry->entry_date->format('d M, Y') }}</td>
+                    <td class="whitespace-nowrap px-3 py-2.5 text-slate-600">{{ $row->entry->entry_date->translatedFormat('d M, Y') }}</td>
                     <td class="px-3 py-2.5">
                         <span class="inline-block rounded-full px-2 py-0.5 text-[11px] font-semibold {{ $row->is_entry ? 'bg-brand-50 text-brand-800' : 'bg-emerald-50 text-emerald-700' }}">
                             {{ $row->is_entry ? $t['entryBadge'] : $t['settleBadge'] }}

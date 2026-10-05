@@ -7,8 +7,8 @@
                     @if ($range === 'custom')
                         {{ $rangeLabel }}
                     @else
-                        {{ $rangeLabel }} ({{ \Illuminate\Support\Carbon::parse($from)->format('d M Y') }}
-                        @if ($from !== $to) – {{ \Illuminate\Support\Carbon::parse($to)->format('d M Y') }} @endif)
+                        {{ $rangeLabel }} ({{ \Illuminate\Support\Carbon::parse($from)->translatedFormat('d M Y') }}
+                        @if ($from !== $to) – {{ \Illuminate\Support\Carbon::parse($to)->translatedFormat('d M Y') }} @endif)
                     @endif
                 </p>
             </div>

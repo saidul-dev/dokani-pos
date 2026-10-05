@@ -69,8 +69,8 @@ class DailyBookController extends Controller implements HasMiddleware
             }
 
             $label = $from->equalTo($to)
-                ? $from->format('d M Y')
-                : $from->format('d M Y').' – '.$to->format('d M Y');
+                ? $from->translatedFormat('d M Y')
+                : $from->translatedFormat('d M Y').' – '.$to->translatedFormat('d M Y');
         } else {
             [$from, $to, $label] = match ($range) {
                 'week' => [now()->startOfWeek(), now()->endOfWeek(), __('This Week')],
@@ -312,7 +312,7 @@ class DailyBookController extends Controller implements HasMiddleware
             ]);
         }
 
-        $message = __(':type entry saved.', ['type' => ucfirst($type)]);
+        $message = __(':type entry saved.', ['type' => __(ucfirst($type))]);
 
         if ($reusedParty) {
             $message .= ' '.__('That phone number already belonged to :name, so the :type was recorded under them.', ['name' => $reusedParty->name, 'type' => __($type)]);

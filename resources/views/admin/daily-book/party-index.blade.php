@@ -108,7 +108,7 @@
                 ledgerUrl: null,
                 q: '',
                 dueOnly: false,
-                all: @js($parties->map(fn ($p) => ['text' => mb_strtolower($p->name.' '.$p->phone), 'due' => $p->daily_book_due > 0])->values()),
+                all: @js($parties->map(fn ($p) => ['text' => mb_strtolower($p->name.' '.$p->display_name.' '.$p->phone), 'due' => $p->daily_book_due > 0])->values()),
                 matches(text, hasDue) {
                     const s = this.q.trim().toLowerCase();
                     return (! this.dueOnly || hasDue) && (s === '' || text.includes(s));
@@ -142,7 +142,7 @@
             @forelse ($parties as $party)
             {{-- Reopen the settle form that failed validation, so the owner sees what to fix. --}}
             <div x-data="{ settling: @js((int) old('settle_party_id') === $party->id) }"
-                 x-bind:hidden="! matches(@js(mb_strtolower($party->name.' '.$party->phone)), @js($party->daily_book_due > 0))"
+                 x-bind:hidden="! matches(@js(mb_strtolower($party->name.' '.$party->display_name.' '.$party->phone)), @js($party->daily_book_due > 0))"
                  class="p-4 sm:px-5">
                 {{-- Clicking the row opens this party's ledger; the settle button and
                      the phone link stop the click so they keep doing their own job. --}}
@@ -152,7 +152,7 @@
                      class="-m-2 flex cursor-pointer items-center justify-between gap-3 rounded-xl p-2 hover:bg-slate-50">
                     <div class="min-w-0">
                         <p class="flex items-center gap-2 font-semibold text-slate-800">
-                            <span class="truncate">{{ $party->name }}</span>
+                            <span class="truncate">{{ $party->display_name }}</span>
                             @if ($party->isWalkIn())
                             <span class="shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-500">{{ __('Walk-in') }}</span>
                             @endif
