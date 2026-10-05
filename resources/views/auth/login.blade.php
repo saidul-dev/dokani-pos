@@ -82,7 +82,7 @@
     <div class="mx-auto max-w-6xl px-6 py-10 sm:px-10 sm:py-14 lg:py-20">
 
         {{-- Top: logo + wordmark --}}
-        <a href="/" class="inline-flex items-center gap-3">
+        <a href="{{ route('home') }}" class="inline-flex items-center gap-3">
             <x-application-logo class="h-8 w-8 shrink-0" />
             <span class="font-mono-label text-[10px] tracking-[0.15em] text-slate-500 uppercase">{{
                 __('Unified ERP for Retail, Wholesale & Online Business') }}</span>

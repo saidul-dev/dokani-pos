@@ -21,7 +21,7 @@
             <div class="pointer-events-none absolute -bottom-32 -left-32 h-96 w-96 rounded-full bg-brand-500/30 blur-3xl"></div>
 
             <div class="relative z-10 flex flex-col items-center">
-                <a href="/" class="flex items-center gap-3">
+                <a href="{{ route('home') }}" class="flex items-center gap-3">
                     <x-application-logo class="w-14 h-14" />
                     <div class="leading-tight">
                         <span class="block text-2xl font-bold text-white tracking-wide">Business ERP</span>

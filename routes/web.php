@@ -65,9 +65,14 @@ use App\Http\Controllers\SteadfastWebhookController;
 use App\Http\Controllers\WebsiteController;
 use Illuminate\Support\Facades\Route;
 
+// The bare domain opens the app: login page for guests, the dashboard for a
+// signed-in user (Daily Book Admins are sent on to their Summary from there).
+Route::get('/', fn () => redirect()->route(auth()->check() ? 'dashboard' : 'login'));
+
 // Public company website — the e-commerce storefront link only appears
-// once "Enable E-commerce" is switched on from Admin > Settings.
-Route::get('/', [WebsiteController::class, 'home'])->name('home');
+// once "Enable E-commerce" is switched on from Admin > Settings. Its home page
+// moved off "/" to /website; route('home') links still point at it.
+Route::get('/website', [WebsiteController::class, 'home'])->name('home');
 Route::get('/about', [WebsiteController::class, 'about'])->name('about');
 Route::get('/media', [WebsiteController::class, 'media'])->name('media');
 Route::get('/career', [WebsiteController::class, 'career'])->name('career');
