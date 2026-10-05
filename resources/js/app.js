@@ -700,6 +700,55 @@ Alpine.data('aiTerminal', (initial) => ({
     },
 }));
 
+// Double-submit guard for every regular POST form in the app: the first submit
+// locks the form, so quick repeated taps (or Enter presses) can't create the
+// same entry twice, and the clicked button shows a loader until the page
+// navigates. Skipped for forms whose own handler cancels the submit
+// (Alpine @submit.prevent / AJAX forms, a declined onsubmit confirm()), GET
+// forms (filters), and forms marked data-no-submit-guard.
+const submitButtons = (form) => [...form.elements].filter((el) =>
+    el.matches('button[type="submit"], button:not([type]), input[type="submit"]'));
+
+document.addEventListener('submit', (event) => {
+    const form = event.target;
+    if (event.defaultPrevented || form.hasAttribute('data-no-submit-guard')) return;
+
+    if (form.dataset.submitting) {
+        event.preventDefault();
+        return;
+    }
+    if ((form.getAttribute('method') || 'get').toLowerCase() !== 'post') return;
+
+    form.dataset.submitting = '1';
+    const submitter = event.submitter;
+
+    // Disabled on the next tick: the browser has built the form data by then,
+    // so a clicked button's own name/value still goes with the request.
+    setTimeout(() => {
+        submitButtons(form).forEach((button) => {
+            button.disabled = true;
+            button.classList.add('is-submitting');
+        });
+        if (submitter?.tagName === 'BUTTON') {
+            submitter.insertAdjacentHTML('afterbegin', '<span class="submit-spinner" aria-hidden="true"></span>');
+        }
+    });
+});
+
+// Back/forward cache can restore a page exactly as it was left — locked —
+// so unlock any guarded form when that happens.
+window.addEventListener('pageshow', (event) => {
+    if (! event.persisted) return;
+    document.querySelectorAll('form[data-submitting]').forEach((form) => {
+        delete form.dataset.submitting;
+        form.querySelectorAll('.submit-spinner').forEach((el) => el.remove());
+        submitButtons(form).forEach((button) => {
+            button.disabled = false;
+            button.classList.remove('is-submitting');
+        });
+    });
+});
+
 window.Alpine = Alpine;
 window.Chart = Chart;
 

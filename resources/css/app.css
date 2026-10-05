@@ -8,6 +8,30 @@
     display: none !important;
 }
 
+/* Loader the double-submit guard in resources/js/app.js puts on a form's
+   submit button while the request is in flight. */
+.submit-spinner {
+    display: inline-block;
+    width: 1em;
+    height: 1em;
+    margin-inline-end: 0.5em;
+    vertical-align: -0.125em;
+    flex-shrink: 0;
+    border: 2px solid currentColor;
+    border-right-color: transparent;
+    border-radius: 9999px;
+    animation: submit-spin 0.7s linear infinite;
+}
+
+button.is-submitting {
+    cursor: wait;
+    opacity: 0.75;
+}
+
+@keyframes submit-spin {
+    to { transform: rotate(360deg); }
+}
+
 .font-display {
     font-family: 'Fraunces', ui-serif, Georgia, serif;
 }
